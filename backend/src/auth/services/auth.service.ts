@@ -72,7 +72,15 @@ export class AuthService {
     // Verify refresh token exists and is valid in database
     const tokenRecord = await this.refreshTokenRepository.findByToken(refreshToken);
     
-    if (!tokenRecord || !tokenRecord.isValid()) {
+    if (!tokenRecord) {
+      throw new Error('Invalid or revoked refresh token');
+    }
+
+    // Check if token is expired or revoked
+    const isExpired = new Date() > tokenRecord.expiresAt;
+    const isRevoked = tokenRecord.revokedAt !== null;
+
+    if (isExpired || isRevoked) {
       throw new Error('Invalid or revoked refresh token');
     }
 

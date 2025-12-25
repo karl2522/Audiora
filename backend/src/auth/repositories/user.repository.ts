@@ -1,56 +1,55 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from '../../entities/user.entity';
+import { PrismaService } from '../../database/prisma.service';
+import { User, Prisma } from '@prisma/client';
 import { GoogleUser } from '../interfaces/user.interface';
 
 @Injectable()
 export class UserRepository {
-  constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async findByGoogleId(googleId: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { googleId } });
+    return this.prisma.user.findUnique({
+      where: { googleId },
+    });
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { email } });
+    return this.prisma.user.findUnique({
+      where: { email },
+    });
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { id } });
+    return this.prisma.user.findUnique({
+      where: { id },
+    });
   }
 
   async createOrUpdate(googleUser: GoogleUser): Promise<User> {
-    let user = await this.findByGoogleId(googleUser.id);
-
-    if (user) {
-      // Update existing user
-      user.email = googleUser.email;
-      user.name = googleUser.name;
-      user.picture = googleUser.picture || null;
-      user.lastLoginAt = new Date();
-      return this.userRepository.save(user);
-    }
-
-    // Create new user
-    user = this.userRepository.create({
+    const userData: Prisma.UserCreateInput = {
       googleId: googleUser.id,
       email: googleUser.email,
-      name: googleUser.name,
+      name: googleUser.name || null,
       picture: googleUser.picture || null,
       lastLoginAt: new Date(),
-    });
+    };
 
-    return this.userRepository.save(user);
+    return this.prisma.user.upsert({
+      where: { googleId: googleUser.id },
+      update: {
+        email: googleUser.email,
+        name: googleUser.name || null,
+        picture: googleUser.picture || null,
+        lastLoginAt: new Date(),
+      },
+      create: userData,
+    });
   }
 
   async updateLastLogin(userId: string): Promise<void> {
-    await this.userRepository.update(userId, {
-      lastLoginAt: new Date(),
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastLoginAt: new Date() },
     });
   }
 }
-

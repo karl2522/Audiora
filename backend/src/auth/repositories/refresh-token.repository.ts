@@ -1,15 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
-import { RefreshToken } from '../../entities/refresh-token.entity';
+import { PrismaService } from '../../database/prisma.service';
+import { RefreshToken, Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class RefreshTokenRepository {
-  constructor(
-    @InjectRepository(RefreshToken)
-    private refreshTokenRepository: Repository<RefreshToken>,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Hash a refresh token before storing
@@ -28,23 +24,32 @@ export class RefreshTokenRepository {
   ): Promise<RefreshToken> {
     const hashedToken = this.hashToken(token);
 
-    const refreshToken = this.refreshTokenRepository.create({
-      userId,
-      token: hashedToken,
-      expiresAt,
+    return this.prisma.refreshToken.create({
+      data: {
+        userId,
+        token: hashedToken,
+        expiresAt,
+      },
     });
-
-    return this.refreshTokenRepository.save(refreshToken);
   }
 
   /**
    * Find refresh token by hashed token value
    */
-  async findByToken(token: string): Promise<RefreshToken | null> {
+  async findByToken(token: string): Promise<(RefreshToken & { user: { id: string; email: string; name: string | null; picture: string | null } }) | null> {
     const hashedToken = this.hashToken(token);
-    return this.refreshTokenRepository.findOne({
+    return this.prisma.refreshToken.findUnique({
       where: { token: hashedToken },
-      relations: ['user'],
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            picture: true,
+          },
+        },
+      },
     });
   }
 
@@ -53,23 +58,23 @@ export class RefreshTokenRepository {
    */
   async revoke(token: string): Promise<void> {
     const hashedToken = this.hashToken(token);
-    await this.refreshTokenRepository.update(
-      { token: hashedToken },
-      { revokedAt: new Date() },
-    );
+    await this.prisma.refreshToken.updateMany({
+      where: { token: hashedToken },
+      data: { revokedAt: new Date() },
+    });
   }
 
   /**
    * Revoke all tokens for a user
    */
   async revokeAllForUser(userId: string): Promise<void> {
-    await this.refreshTokenRepository
-      .createQueryBuilder()
-      .update(RefreshToken)
-      .set({ revokedAt: new Date() })
-      .where('userId = :userId', { userId })
-      .andWhere('revokedAt IS NULL')
-      .execute();
+    await this.prisma.refreshToken.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+      },
+      data: { revokedAt: new Date() },
+    });
   }
 
   /**
@@ -77,20 +82,24 @@ export class RefreshTokenRepository {
    */
   async updateLastUsed(token: string): Promise<void> {
     const hashedToken = this.hashToken(token);
-    await this.refreshTokenRepository.update(
-      { token: hashedToken },
-      { lastUsedAt: new Date() },
-    );
+    await this.prisma.refreshToken.updateMany({
+      where: { token: hashedToken },
+      data: { lastUsedAt: new Date() },
+    });
   }
 
   /**
    * Clean up expired tokens
    */
   async cleanupExpiredTokens(): Promise<number> {
-    const result = await this.refreshTokenRepository.delete({
-      expiresAt: LessThan(new Date()),
+    const result = await this.prisma.refreshToken.deleteMany({
+      where: {
+        expiresAt: {
+          lt: new Date(),
+        },
+      },
     });
-    return result.affected || 0;
+    return result.count;
   }
 
   /**
@@ -100,10 +109,14 @@ export class RefreshTokenRepository {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const result = await this.refreshTokenRepository.delete({
-      revokedAt: LessThan(thirtyDaysAgo),
+    const result = await this.prisma.refreshToken.deleteMany({
+      where: {
+        revokedAt: {
+          not: null,
+          lt: thirtyDaysAgo,
+        },
+      },
     });
-    return result.affected || 0;
+    return result.count;
   }
 }
-
