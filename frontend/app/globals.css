@@ -154,3 +154,28 @@
   background-size: 32px 32px;
   background-position: 0 0;
 }
+
+/* Scroll animation classes */
+.scroll-section {
+  opacity: 0 !important;
+  transform: translateY(30px);
+  transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+  will-change: opacity, transform;
+}
+
+.scroll-section.visible {
+  opacity: 1 !important;
+  transform: translateY(0);
+}
+
+.scroll-section-delay-1 {
+  transition-delay: 0.1s;
+}
+
+.scroll-section-delay-2 {
+  transition-delay: 0.2s;
+}
+
+.scroll-section-delay-3 {
+  transition-delay: 0.3s;
+}

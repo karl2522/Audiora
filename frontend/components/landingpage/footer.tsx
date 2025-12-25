@@ -1,5 +1,21 @@
+"use client"
+
 import { Music2 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
+
+const smoothScrollTo = (elementId: string) => {
+    const element = document.getElementById(elementId)
+    if (element) {
+        const offset = 80 // Account for fixed navigation
+        const elementPosition = element.getBoundingClientRect().top
+        const offsetPosition = elementPosition + window.pageYOffset - offset
+
+        window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+        })
+    }
+}
 
 export function Footer() {
     return (
@@ -19,18 +35,39 @@ export function Footer() {
                         <h4 className="font-medium mb-4">Product</h4>
                         <ul className="space-y-2 text-sm text-muted-foreground">
                             <li>
-                                <a href="#" className="hover:text-foreground transition-colors">
+                                <a 
+                                    href="#cta" 
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        smoothScrollTo('cta')
+                                    }}
+                                    className="hover:text-foreground transition-colors cursor-pointer"
+                                >
                                     Desktop App
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-foreground transition-colors">
+                                <a 
+                                    href="#ai-djs" 
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        smoothScrollTo('ai-djs')
+                                    }}
+                                    className="hover:text-foreground transition-colors cursor-pointer"
+                                >
                                     AI DJs
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-foreground transition-colors">
-                                    Pricing
+                                <a 
+                                    href="#features" 
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        smoothScrollTo('features')
+                                    }}
+                                    className="hover:text-foreground transition-colors cursor-pointer"
+                                >
+                                    Features
                                 </a>
                             </li>
                         </ul>
