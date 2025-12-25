@@ -18,7 +18,7 @@ export default function ListeningPage() {
           variant="ghost"
           size="icon"
           onClick={() => router.back()}
-          className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-background/80 backdrop-blur-sm border border-border hover:bg-background"
+          className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-background/80 backdrop-blur-sm border border-border hover:bg-background hover:scale-105 transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
         </Button>
