@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import type { JwtModuleOptions } from '@nestjs/jwt/dist/interfaces/jwt-module-options.interface';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthController } from './auth.controller';
 import { AuthService } from './services/auth.service';
 import { TokenService } from './services/token.service';
@@ -15,6 +16,18 @@ import { RefreshTokenRepository } from './repositories/refresh-token.repository'
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'auth',
+        ttl: 900000, // 15 minutes
+        limit: 5, // 5 attempts per 15 minutes for auth endpoints
+      },
+      {
+        name: 'refresh',
+        ttl: 60000, // 1 minute
+        limit: 10, // 10 refresh requests per minute
+      },
+    ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService): JwtModuleOptions => {

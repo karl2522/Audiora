@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react"
 import { getCurrentUser, logout as apiLogout } from "@/lib/api-client"
-import { isAuthenticated } from "@/lib/auth"
 
 interface User {
   email: string
@@ -25,17 +24,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   const refreshUser = async () => {
-    if (!isAuthenticated()) {
-      setUser(null)
-      setIsLoading(false)
-      return
-    }
-
+    // SECURITY FIX: Always try to fetch user - authentication is determined by httpOnly cookies
+    // The API will return 401 if not authenticated, which we handle below
     try {
       const userData = await getCurrentUser()
       setUser(userData)
     } catch (error) {
-      console.error("Error fetching user:", error)
+      // User is not authenticated or token expired
       setUser(null)
     } finally {
       setIsLoading(false)

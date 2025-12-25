@@ -11,32 +11,37 @@ export interface ApiError {
 
 /**
  * Get access token from storage
+ * SECURITY FIX: Access token is now in httpOnly cookie, not localStorage
+ * This function is kept for backward compatibility but tokens are handled server-side
  */
 function getAccessToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('accessToken');
+  // Access token is now in httpOnly cookie, accessible only server-side
+  // Frontend doesn't need to manage it directly
+  return null;
 }
 
 /**
  * Store access token
+ * SECURITY FIX: No longer used - tokens are in httpOnly cookies
+ * Kept for backward compatibility
  */
 export function setAccessToken(token: string): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('accessToken', token);
+  // No-op: tokens are now in httpOnly cookies set by backend
 }
 
 /**
  * Remove access token
+ * SECURITY FIX: Token removal is handled by backend logout endpoint
  */
 export function removeAccessToken(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem('accessToken');
+  // No-op: tokens are cleared by backend on logout
 }
 
 /**
  * Refresh access token using refresh token from httpOnly cookie
+ * SECURITY FIX: Tokens are now in httpOnly cookies, not returned in response
  */
-async function refreshAccessToken(): Promise<string | null> {
+async function refreshAccessToken(): Promise<boolean> {
   try {
     const response = await fetch(`${API_URL}/auth/refresh`, {
       method: 'POST',
@@ -47,17 +52,11 @@ async function refreshAccessToken(): Promise<string | null> {
       throw new Error('Failed to refresh token');
     }
 
-    const data = await response.json();
-    if (data.accessToken) {
-      setAccessToken(data.accessToken);
-      return data.accessToken;
-    }
-
-    return null;
+    // Access token is now set in httpOnly cookie by backend
+    return true;
   } catch (error) {
     console.error('Error refreshing token:', error);
-    removeAccessToken();
-    return null;
+    return false;
   }
 }
 
@@ -72,27 +71,24 @@ export async function apiRequest<T = any>(
 
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
     ...options.headers,
   };
 
+  // Access token is in httpOnly cookie, automatically sent with credentials: 'include'
   let response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers,
-    credentials: 'include', // Include cookies for refresh token
+    credentials: 'include', // Include httpOnly cookies (accessToken and refreshToken)
   });
 
   // If unauthorized, try to refresh token and retry once
-  if (response.status === 401 && token) {
-    const newToken = await refreshAccessToken();
-    if (newToken) {
-      // Retry request with new token
+  if (response.status === 401) {
+    const refreshSuccess = await refreshAccessToken();
+    if (refreshSuccess) {
+      // Retry request - new access token is in httpOnly cookie
       response = await fetch(`${API_URL}${endpoint}`, {
         ...options,
-        headers: {
-          ...headers,
-          Authorization: `Bearer ${newToken}`,
-        },
+        headers,
         credentials: 'include',
       });
     } else {

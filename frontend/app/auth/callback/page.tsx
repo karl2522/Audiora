@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { setAccessToken } from "@/lib/api-client"
 import { useAuth } from "@/contexts/auth-context"
 import { Music2 } from "lucide-react"
 
@@ -14,7 +13,7 @@ export default function AuthCallbackPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const token = searchParams.get('token')
+    const success = searchParams.get('success')
     const errorParam = searchParams.get('error')
 
     if (errorParam) {
@@ -27,12 +26,10 @@ export default function AuthCallbackPage() {
       return
     }
 
-    if (token) {
+    if (success === 'true') {
       try {
-        // Store access token
-        setAccessToken(token)
-        
-        // Refresh user data in auth context
+        // Access token is now in httpOnly cookie, no need to store in localStorage
+        // Just refresh user data - the API client will use the cookie automatically
         refreshUser()
         
         // Redirect to listening page
@@ -45,7 +42,7 @@ export default function AuthCallbackPage() {
         }, 3000)
       }
     } else {
-      setError('No token received')
+      setError('Authentication failed')
       setIsLoading(false)
       setTimeout(() => {
         router.push('/')

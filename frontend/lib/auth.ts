@@ -4,10 +4,15 @@
 
 /**
  * Check if user is authenticated
+ * SECURITY FIX: No longer checks localStorage - authentication is determined
+ * by the presence of valid httpOnly cookies and successful API calls
+ * This function is kept for backward compatibility but should not be relied upon
  */
 export function isAuthenticated(): boolean {
-  if (typeof window === 'undefined') return false;
-  return !!localStorage.getItem('accessToken');
+  // Authentication is now determined by httpOnly cookies and API responses
+  // This function cannot reliably check authentication without making an API call
+  // The AuthContext handles authentication state properly
+  return false; // Always return false - let AuthContext handle auth state
 }
 
 /**
