@@ -1,7 +1,9 @@
 "use client"
 
+import { useState } from "react"
 import { Music2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { SignInModal } from "@/components/auth/sign-in-modal"
 import { cn } from "@/lib/utils"
 
 const smoothScrollTo = (elementId: string) => {
@@ -19,6 +21,8 @@ const smoothScrollTo = (elementId: string) => {
 }
 
 export function Navigation() {
+    const [isSignInOpen, setIsSignInOpen] = useState(false)
+    
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-4 md:px-12 md:py-6 mix-blend-difference">
             <a 
@@ -64,9 +68,13 @@ export function Navigation() {
                     Contact
                 </a>
             </div>
-            <Button className="px-3 py-1.5 md:px-5 md:py-2 bg-white text-black rounded-full text-xs md:text-sm font-medium hover:bg-opacity-90 hover:scale-105 transition-all cursor-pointer">
+            <Button 
+                onClick={() => setIsSignInOpen(true)}
+                className="px-3 py-1.5 md:px-5 md:py-2 bg-white text-black rounded-full text-xs md:text-sm font-medium hover:bg-opacity-90 hover:scale-105 transition-all cursor-pointer"
+            >
                 Sign In
             </Button>
+            <SignInModal open={isSignInOpen} onOpenChange={setIsSignInOpen} />
         </nav>
     )
 }

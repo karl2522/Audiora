@@ -1,33 +1,40 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Music2, Clock, ListMusic } from "lucide-react"
-import Link from "next/link"
+import { SignInModal } from "@/components/auth/sign-in-modal"
+import { useAuth } from "@/contexts/auth-context"
 
 export function SuggestionsPanel() {
+  const [isSignInOpen, setIsSignInOpen] = useState(false)
+  const { isAuthenticated } = useAuth()
   const suggestions: Array<{ id: number; title: string; artist: string; duration: string }> = []
 
   return (
     <div className="flex flex-col gap-2 md:gap-3 lg:gap-4 xl:gap-6 h-full min-h-0">
-      {/* Sign In Button */}
-      <Card className="bg-foreground text-background border-none rounded-lg md:rounded-xl lg:rounded-2xl xl:rounded-3xl flex-shrink-0">
-        <CardContent className="p-3 md:p-4 lg:p-6 xl:p-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 md:gap-3 lg:gap-4">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm md:text-base lg:text-lg xl:text-xl font-medium mb-0.5 md:mb-1">Personalize your experience</h3>
-              <p className="text-xs md:text-sm lg:text-base text-white/70">
-                Sign in to get AI-powered recommendations tailored to your taste.
-              </p>
-            </div>
-            <Link href="/signin" className="flex-shrink-0 w-full sm:w-auto">
-              <Button className="bg-background text-foreground hover:bg-background/90 rounded-full px-3 py-1.5 md:px-4 md:py-2 lg:px-6 lg:py-3 xl:px-8 xl:py-4 text-xs md:text-sm lg:text-base whitespace-nowrap w-full sm:w-auto">
+      {/* Sign In Button - Only show if not authenticated */}
+      {!isAuthenticated && (
+        <Card className="bg-foreground text-background border-none rounded-lg md:rounded-xl lg:rounded-2xl xl:rounded-3xl flex-shrink-0">
+          <CardContent className="p-3 md:p-4 lg:p-6 xl:p-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 md:gap-3 lg:gap-4">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm md:text-base lg:text-lg xl:text-xl font-medium mb-0.5 md:mb-1">Personalize your experience</h3>
+                <p className="text-xs md:text-sm lg:text-base text-white/70">
+                  Sign in to get AI-powered recommendations tailored to your taste.
+                </p>
+              </div>
+              <Button 
+                onClick={() => setIsSignInOpen(true)}
+                className="bg-background text-foreground hover:bg-background/90 rounded-full px-3 py-1.5 md:px-4 md:py-2 lg:px-6 lg:py-3 xl:px-8 xl:py-4 text-xs md:text-sm lg:text-base whitespace-nowrap w-full sm:w-auto cursor-pointer"
+              >
                 Sign in to personalize
               </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Queue List */}
       <Card className="flex-1 flex flex-col bg-background border-border rounded-lg md:rounded-xl lg:rounded-2xl xl:rounded-3xl overflow-hidden min-h-0">
@@ -73,6 +80,8 @@ export function SuggestionsPanel() {
           )}
         </CardContent>
       </Card>
+
+      <SignInModal open={isSignInOpen} onOpenChange={setIsSignInOpen} />
     </div>
   )
 }
