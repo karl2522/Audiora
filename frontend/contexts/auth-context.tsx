@@ -29,7 +29,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const userData = await getCurrentUser()
       setUser(userData)
-    } catch (error) {
+    } catch (error: any) {
+      // Handle rate limiting errors gracefully
+      if (error?.statusCode === 429) {
+        // Rate limited - don't clear user, just stop loading
+        console.warn('Rate limited on auth check, will retry later')
+        setIsLoading(false)
+        return
+      }
       // User is not authenticated or token expired
       setUser(null)
     } finally {

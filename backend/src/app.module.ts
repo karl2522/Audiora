@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
+import { MusicModule } from './music/music.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -18,11 +19,12 @@ import configuration from './config/configuration';
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // 1 minute
-        limit: 10, // 10 requests per minute
+        limit: 5000, // 5000 requests per minute (very high for development)
       },
     ]),
     DatabaseModule,
     AuthModule,
+    MusicModule,
   ],
   controllers: [AppController],
   providers: [

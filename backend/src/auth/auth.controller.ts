@@ -11,7 +11,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { Throttle } from '@nestjs/throttler';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './services/auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -127,8 +127,10 @@ export class AuthController {
 
   /**
    * Get current user profile
+   * Skip global throttling - this endpoint is called frequently for auth checks
    */
   @Get('me')
+  @SkipThrottle()
   @UseGuards(JwtAuthGuard)
   async getProfile(@CurrentUser() user: UserPayload) {
     // Fetch fresh user data from database

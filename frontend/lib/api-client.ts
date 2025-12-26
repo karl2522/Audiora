@@ -102,29 +102,71 @@ export async function apiRequest<T = any>(
   }
 
   if (!response.ok) {
+    let errorMessage = 'Request failed';
+    let errorData: any = null;
+
+    try {
+      const text = await response.text();
+      
+      if (text) {
+        try {
+          errorData = JSON.parse(text);
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch {
+          errorMessage = text || response.statusText || errorMessage;
+        }
+      } else {
+        errorMessage = response.statusText || errorMessage;
+      }
+    } catch (parseError) {
+      errorMessage = response.statusText || errorMessage;
+    }
+
     const error: ApiError = {
-      message: 'Request failed',
+      message: errorMessage,
       statusCode: response.status,
     };
 
-    try {
-      const errorData = await response.json();
-      error.message = errorData.message || error.message;
-    } catch {
-      // If response is not JSON, use status text
-      error.message = response.statusText || error.message;
+    // Only log non-rate-limit errors to reduce console noise
+    if (response.status !== 429) {
+      console.error('API request failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        message: errorMessage,
+        errorData,
+      });
     }
 
     throw error;
   }
 
-  // Handle empty responses
+  // Handle responses
   const contentType = response.headers.get('content-type');
-  if (!contentType || !contentType.includes('application/json')) {
+  console.log('Response content-type:', contentType);
+  console.log('Response status:', response.status);
+  
+  // Try to parse as JSON regardless of content-type header
+  // Some servers don't set content-type correctly
+  try {
+    const text = await response.text();
+    console.log('Response text (first 500 chars):', text.substring(0, 500));
+    
+    if (!text || text.trim() === '') {
+      console.warn('Empty response body');
+      return {} as T;
+    }
+    
+    const json = JSON.parse(text);
+    console.log('Parsed JSON response:', json);
+    return json as T;
+  } catch (parseError) {
+    console.error('Failed to parse response as JSON:', parseError);
+    // If content-type says JSON but parsing failed, throw error
+    if (contentType && contentType.includes('application/json')) {
+      throw new Error('Invalid JSON response from server');
+    }
     return {} as T;
   }
-
-  return response.json();
 }
 
 /**

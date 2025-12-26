@@ -123,6 +123,11 @@
   }
 }
 
+/* Ensure Sonner toast uses the same font as the site */
+[data-sonner-toaster] {
+  font-family: var(--font-geist-sans), "Geist", "Geist Fallback", sans-serif;
+}
+
 /* Hide scrollbar but allow scrolling for snap sections */
 .snap-container {
   scrollbar-width: none;
