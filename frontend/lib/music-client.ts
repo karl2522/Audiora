@@ -61,7 +61,7 @@ export async function searchTracks(
 ): Promise<SearchTracksResponse> {
   // Normalize query for cache key (lowercase, trim)
   const normalizedQuery = query.toLowerCase().trim();
-  
+
   // Check cache first
   const cached = musicCache.getSearch(normalizedQuery, limit, offset);
   if (cached) {
@@ -77,10 +77,10 @@ export async function searchTracks(
     limit: limit.toString(),
     offset: offset.toString(),
   });
-  
+
   try {
     const response = await apiRequest<SearchTracksResponse>(`/music/search?${params.toString()}`);
-    
+
     // Debug: Log first track duration received from API
     if (response?.tracks && response.tracks.length > 0) {
       const firstTrack = response.tracks[0];
@@ -91,13 +91,13 @@ export async function searchTracks(
         allKeys: Object.keys(firstTrack),
       });
     }
-    
+
     // Cache the response
     if (response && response.tracks && response.tracks.length > 0) {
       console.log("💾 Caching search results for:", query);
       musicCache.setSearch(normalizedQuery, limit, offset, response);
     }
-    
+
     return response;
   } catch (error: any) {
     // If rate limited, try to return cached data even if expired
@@ -131,17 +131,17 @@ export async function getTrendingTracks(
   const params = new URLSearchParams();
   if (genre) params.append('genre', genre);
   params.append('limit', limit.toString());
-  
+
   const queryString = params.toString();
   const response = await apiRequest<TrendingTracksResponse>(
     `/music/trending${queryString ? `?${queryString}` : ''}`,
   );
-  
+
   // Cache the response
   if (response && response.tracks) {
     musicCache.setTrending(genre, limit, response);
   }
-  
+
   return response;
 }
 
@@ -158,12 +158,12 @@ export async function getTrackById(trackId: string): Promise<TrackResponse> {
 
   // Fetch from API
   const response = await apiRequest<TrackResponse>(`/music/track/${trackId}`);
-  
+
   // Cache the response
   if (response && response.track) {
     musicCache.setTrack(trackId, response);
   }
-  
+
   return response;
 }
 
@@ -174,5 +174,43 @@ export async function getStreamUrl(
   trackId: string,
 ): Promise<StreamUrlResponse> {
   return apiRequest<StreamUrlResponse>(`/music/track/${trackId}/stream`);
+}
+
+/**
+ * Audiora DJ Playlist Response
+ */
+export interface AudioraDJPlaylist {
+  userId: string;
+  generatedAt: string;
+  tracks: Track[];
+  sessionLength: number;
+  seedTracks?: string[];
+  metadata?: {
+    avgCompletionRate: number;
+    topGenres: string[];
+    topArtists: string[];
+  };
+}
+
+/**
+ * Get Audiora DJ personalized playlist
+ */
+export async function getAudioraDJPlaylist(
+  sessionLength?: number,
+  maxLength?: number,
+): Promise<AudioraDJPlaylist> {
+  const params = new URLSearchParams();
+  if (sessionLength) {
+    params.append('sessionLength', sessionLength.toString());
+  }
+  if (maxLength) {
+    params.append('maxLength', maxLength.toString());
+  }
+
+  const queryString = params.toString();
+  return apiRequest<AudioraDJPlaylist>(
+    `/music/dj/audiora${queryString ? `?${queryString}` : ''}`,
+    { timeout: 60000 } // Allow 60s for AI generation
+  );
 }
 

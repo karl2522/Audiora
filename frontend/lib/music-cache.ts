@@ -11,7 +11,7 @@ interface CacheEntry<T> {
 
 class MusicCache {
   private cache: Map<string, CacheEntry<any>> = new Map();
-  
+
   // Default TTL: Longer for search to reduce API calls
   private readonly SEARCH_TTL = 10 * 60 * 1000; // 10 minutes (increased from 5)
   private readonly TRACK_TTL = 30 * 60 * 1000; // 30 minutes (increased from 10)
@@ -52,7 +52,7 @@ class MusicCache {
    */
   get<T>(key: string): T | null {
     const entry = this.cache.get(key);
-    if (this.isValid(entry)) {
+    if (entry && this.isValid(entry)) {
       return entry.data as T;
     }
     // Remove expired entry
@@ -76,7 +76,7 @@ class MusicCache {
   /**
    * Get cached search results
    */
-  getSearch(query: string, limit: number, offset: number) {
+  getSearch(query: string, limit: number, offset: number): any {
     const normalizedQuery = query.toLowerCase().trim();
     const key = this.getSearchKey(normalizedQuery, limit, offset);
     const cached = this.get(key);
@@ -101,7 +101,7 @@ class MusicCache {
   /**
    * Get cached track
    */
-  getTrack(trackId: string) {
+  getTrack(trackId: string): any {
     const key = this.getTrackKey(trackId);
     return this.get(key);
   }
@@ -117,7 +117,7 @@ class MusicCache {
   /**
    * Get cached trending tracks
    */
-  getTrending(genre?: string, limit?: number) {
+  getTrending(genre?: string, limit?: number): any {
     const key = this.getTrendingKey(genre, limit);
     return this.get(key);
   }

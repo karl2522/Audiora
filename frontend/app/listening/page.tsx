@@ -1,21 +1,22 @@
 "use client"
 
-import { ArrowLeft, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { SignInModal } from "@/components/auth/sign-in-modal"
+import { DJSelector } from "@/components/listening/dj-selector"
 import { MusicPlayer } from "@/components/listening/music-player"
+import { QueuePanel } from "@/components/listening/queue-panel"
 import { SearchBar } from "@/components/listening/search-bar"
 import { SuggestionsPanel } from "@/components/listening/suggestions-panel"
 import { TrackList } from "@/components/listening/track-list"
 import { UserProfile } from "@/components/listening/user-profile"
-import { useRouter } from "next/navigation"
-import { useState, useCallback, useEffect } from "react"
-import { searchTracks, Track } from "@/lib/music-client"
-import { useMusicPlayerContext } from "@/contexts/music-player-context"
-import { useAuth } from "@/contexts/auth-context"
-import { useListeningHistory } from "@/hooks/use-listening-history"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Music2 } from "lucide-react"
-import { SignInModal } from "@/components/auth/sign-in-modal"
+import { useAuth } from "@/contexts/auth-context"
+import { useMusicPlayerContext } from "@/contexts/music-player-context"
+import { useListeningHistory } from "@/hooks/use-listening-history"
+import { searchTracks, Track } from "@/lib/music-client"
+import { ArrowLeft, Music2, X } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useCallback, useState } from "react"
 import { toast } from "sonner"
 
 export default function ListeningPage() {
@@ -24,9 +25,9 @@ export default function ListeningPage() {
   const [searchResults, setSearchResults] = useState<Track[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [showSearchResults, setShowSearchResults] = useState(false)
-  
+
   const { play, addToQueue, currentTrack } = useMusicPlayerContext()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading: isAuthLoading, authStatus } = useAuth()
   const [isSignInOpen, setIsSignInOpen] = useState(false)
 
   // Initialize listening history tracking (only tracks if authenticated)
@@ -60,11 +61,11 @@ export default function ListeningPage() {
     setSearchQuery(normalizedQuery)
     setIsLoading(true)
     setShowSearchResults(true)
-    
+
     try {
       const response = await searchTracks(normalizedQuery, 20)
       const tracks = response?.tracks || []
-      
+
       // Debug: Log tracks received
       if (tracks.length > 0) {
         console.log('[DEBUG] ListeningPage received tracks:', tracks.length);
@@ -74,7 +75,7 @@ export default function ListeningPage() {
           durationType: typeof tracks[0].duration,
         });
       }
-      
+
       if (tracks.length > 0) {
         setSearchResults(tracks)
       } else {
@@ -89,7 +90,7 @@ export default function ListeningPage() {
         await new Promise(resolve => setTimeout(resolve, delay))
         return handleSearch(normalizedQuery, retryCount + 1)
       }
-      
+
       // Log error only if not rate limited or max retries reached
       if (error?.statusCode !== 429) {
         console.error("Error searching tracks:", error?.message || error)
@@ -105,7 +106,7 @@ export default function ListeningPage() {
           return
         }
       }
-      
+
       setSearchResults([])
     } finally {
       setIsLoading(false)
@@ -126,7 +127,7 @@ export default function ListeningPage() {
       }
       return
     }
-    
+
     // Ensure track has streamUrl before playing
     if (!track.streamUrl || typeof track.streamUrl !== 'string' || track.streamUrl.trim() === '') {
       if (process.env.NODE_ENV === 'development') {
@@ -135,7 +136,7 @@ export default function ListeningPage() {
       toast.error('Track is not available for playback')
       return
     }
-    
+
     // play() will add to queue automatically, so we don't need to call addToQueue separately
     play(track)
   }
@@ -178,8 +179,8 @@ export default function ListeningPage() {
         <UserProfile />
       </div>
 
-      <div className="w-full h-screen flex flex-col pt-16 md:pt-20 lg:pt-24 px-3 md:px-4 lg:px-6 xl:px-12 pb-3 md:pb-4 lg:pb-8">
-        <div className="max-w-7xl w-full mx-auto flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 lg:gap-6 xl:gap-8 min-h-0 overflow-hidden">
+      <div className="w-full h-screen flex flex-col pt-16 md:pt-20 lg:pt-24 px-4 md:px-8 lg:px-12 xl:px-20 pb-4 md:pb-6 lg:pb-8">
+        <div className="max-w-6xl w-full mx-auto flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8 min-h-0 overflow-hidden">
           {/* Left Side - Music Player */}
           <div className="flex flex-col gap-2 md:gap-3 lg:gap-4 xl:gap-6 min-h-0 overflow-hidden">
             <SearchBar onSearch={handleSearch} isLoading={isLoading} />
@@ -188,12 +189,12 @@ export default function ListeningPage() {
             </div>
           </div>
 
-          {/* Right Side - Queue or Search Results */}
+          {/* Right Side - DJ Selector + Queue (when logged in) or Search Results */}
           <div className="flex flex-col gap-2 md:gap-3 lg:gap-4 xl:gap-6 min-h-0 overflow-hidden">
             {showSearchResults ? (
               <>
-                {/* Personalize Card - Show when not logged in */}
-                {!isAuthenticated && (
+                {/* Personalize Card - Show when not logged in (only after auth check completes) */}
+                {!isAuthLoading && !isAuthenticated && (
                   <Card className="bg-foreground text-background border-none rounded-lg md:rounded-xl lg:rounded-2xl xl:rounded-3xl flex-shrink-0">
                     <CardContent className="p-3 md:p-4 lg:p-6 xl:p-8">
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 md:gap-3 lg:gap-4">
@@ -203,7 +204,7 @@ export default function ListeningPage() {
                             Sign in to get AI-powered recommendations tailored to your taste.
                           </p>
                         </div>
-                        <Button 
+                        <Button
                           onClick={() => setIsSignInOpen(true)}
                           className="bg-background text-foreground hover:bg-background/90 rounded-full px-3 py-1.5 md:px-4 md:py-2 lg:px-6 lg:py-3 xl:px-8 xl:py-4 text-xs md:text-sm lg:text-base whitespace-nowrap w-full sm:w-auto cursor-pointer"
                         >
@@ -213,7 +214,7 @@ export default function ListeningPage() {
                     </CardContent>
                   </Card>
                 )}
-                
+
                 <Card className="flex-1 flex flex-col bg-background border-border rounded-lg md:rounded-xl lg:rounded-2xl overflow-hidden min-h-0">
                   <CardHeader className="pb-2 md:pb-3 flex-shrink-0 p-3 md:p-4 bg-background">
                     <div className="flex items-center justify-between">
@@ -244,13 +245,32 @@ export default function ListeningPage() {
                   </CardContent>
                 </Card>
               </>
+            ) : isAuthLoading || authStatus === 'loading' || authStatus === 'idle' ? (
+              // Show loading state while checking authentication (state machine)
+              <Card className="flex-1 flex flex-col bg-background border-border rounded-lg md:rounded-xl lg:rounded-2xl overflow-hidden min-h-0">
+                <CardContent className="flex-1 flex items-center justify-center">
+                  <div className="text-center space-y-2">
+                    <div className="w-8 h-8 border-2 border-muted-foreground border-t-foreground rounded-full animate-spin mx-auto" />
+                    <p className="text-sm text-muted-foreground">Loading...</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : authStatus === 'authenticated' || isAuthenticated ? (
+              <>
+                {/* DJ Selector - Only show when logged in */}
+                <DJSelector />
+                {/* Queue Panel - Same size as left containers */}
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <QueuePanel />
+                </div>
+              </>
             ) : (
               <SuggestionsPanel />
             )}
           </div>
         </div>
       </div>
-      
+
       <SignInModal open={isSignInOpen} onOpenChange={setIsSignInOpen} />
     </main>
   )

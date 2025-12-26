@@ -1,27 +1,25 @@
 import {
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Post,
   Req,
   Res,
-  UseGuards,
-  HttpCode,
-  HttpStatus,
-  Body,
   UnauthorizedException,
+  UseGuards
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
-import { Throttle, SkipThrottle } from '@nestjs/throttler';
+import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
-import { AuthService } from './services/auth.service';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import type { Request, Response } from 'express';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import type { UserPayload } from './interfaces/user.interface';
-import { RefreshTokenDto } from './dto/auth.dto';
-import { ConfigService } from '@nestjs/config';
 import { UserRepository } from './repositories/user.repository';
+import { AuthService } from './services/auth.service';
 
 @Controller('auth')
 export class AuthController {
@@ -29,14 +27,14 @@ export class AuthController {
     private authService: AuthService,
     private configService: ConfigService,
     private userRepository: UserRepository,
-  ) {}
+  ) { }
 
   /**
    * Initiate Google OAuth flow
    * Generates state parameter for CSRF protection
    */
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 900000 } }) // 5 attempts per 15 minutes
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 attempts per minute
   @Get('google')
   @UseGuards(AuthGuard('google'))
   async googleAuth() {
@@ -48,7 +46,7 @@ export class AuthController {
    * Validates state parameter and exchanges code for tokens
    */
   @Public()
-  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 attempts per minute
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 attempts per minute
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleAuthCallback(
@@ -135,7 +133,7 @@ export class AuthController {
   async getProfile(@CurrentUser() user: UserPayload) {
     // Fetch fresh user data from database
     const dbUser = await this.userRepository.findById(user.sub);
-    
+
     if (!dbUser) {
       throw new UnauthorizedException('User not found');
     }

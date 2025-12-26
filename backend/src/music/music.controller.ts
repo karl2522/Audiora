@@ -16,6 +16,7 @@ import { Throttle } from '@nestjs/throttler';
 import { TrackService } from './services/track.service';
 import { PlaylistService } from './services/playlist.service';
 import { HistoryService } from './services/history.service';
+import { AudioraDJService } from './services/audiora-dj.service';
 import { SearchTracksDto, GetTrackDto, GetTrendingDto } from './dto/track.dto';
 import {
   LogTrackStartDto,
@@ -23,6 +24,7 @@ import {
   LogTrackSkipDto,
   GetHistoryDto,
 } from './dto/history.dto';
+import { AudioraDJPlaylist } from './dto/dj.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -37,6 +39,7 @@ export class MusicController {
     private trackService: TrackService,
     private playlistService: PlaylistService,
     private historyService: HistoryService,
+    private audioraDJService: AudioraDJService,
   ) {}
 
   /**
@@ -383,6 +386,49 @@ export class MusicController {
     } catch (error: any) {
       throw new HttpException(
         error.message || 'Failed to delete history',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get Audiora DJ personalized playlist
+   */
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute
+  @Get('dj/audiora')
+  @HttpCode(HttpStatus.OK)
+  async getAudioraDJPlaylist(
+    @CurrentUser() user: UserPayload,
+    @Query('sessionLength') sessionLength?: number,
+    @Query('maxLength') maxLength?: number,
+  ): Promise<AudioraDJPlaylist> {
+    try {
+      const validatedSessionLength = sessionLength
+        ? parseInt(sessionLength.toString(), 10)
+        : undefined;
+      const validatedMaxLength = maxLength
+        ? parseInt(maxLength.toString(), 10)
+        : 50; // Default max 50 tracks
+
+      const playlist = await this.audioraDJService.generatePlaylist(
+        user.sub,
+        validatedSessionLength,
+        validatedMaxLength,
+      );
+
+      // Log playlist generation for analytics
+      this.logger.log(
+        `Generated Audiora DJ playlist for user ${user.sub}: ${playlist.tracks.length} tracks`,
+      );
+
+      return playlist;
+    } catch (error: any) {
+      this.logger.error(
+        `Error generating Audiora DJ playlist: ${error.message}`,
+      );
+      throw new HttpException(
+        error.message || 'Failed to generate playlist',
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

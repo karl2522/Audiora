@@ -5,6 +5,7 @@ import { AudiusService } from './services/audius.service';
 import { PlaylistService } from './services/playlist.service';
 import { CacheService } from './services/cache.service';
 import { HistoryService } from './services/history.service';
+import { AudioraDJService } from './services/audiora-dj.service';
 import { PlayHistoryRepository } from './repositories/play-history.repository';
 
 @Module({
@@ -15,9 +16,10 @@ import { PlayHistoryRepository } from './repositories/play-history.repository';
     PlaylistService,
     CacheService,
     HistoryService,
+    AudioraDJService,
     PlayHistoryRepository,
   ],
-  exports: [TrackService, PlaylistService, HistoryService], // Export for AI module later
+  exports: [TrackService, PlaylistService, HistoryService, AudioraDJService], // Export for AI module later
 })
 export class MusicModule implements OnModuleInit {
   constructor(private cacheService: CacheService) {}

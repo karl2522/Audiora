@@ -22,31 +22,75 @@ export function useListeningHistory() {
 
   const activeHistoryIdRef = useRef<string | null>(null);
   const queuedRequestsRef = useRef<Array<() => Promise<void>>>([]);
+  const lastLoggedTrackIdRef = useRef<string | null>(null); // Track last logged track to prevent duplicates
+  const isLoggingRef = useRef(false); // Prevent concurrent logStart calls
+  const logStartTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Debounce timer
+  const logStartRef = useRef<((track: Track) => Promise<void>) | null>(null); // Store latest logStart callback
+  const logSkipRef = useRef<(() => Promise<void>) | null>(null); // Store latest logSkip callback
 
   /**
-   * Log track start
+   * Log track start with debouncing and duplicate prevention
    */
   const logStart = useCallback(
     async (track: Track) => {
       if (!isAuthenticated || !track) return;
 
-      try {
-        const response = await logTrackStart({
-          trackId: track.id,
-          trackTitle: track.title,
-          trackArtist: track.artist,
-          trackGenre: track.genre,
-          trackMood: track.mood,
-          trackDuration: track.duration,
-        });
-        activeHistoryIdRef.current = response.historyId;
-      } catch (error) {
-        // Queue for retry if offline
-        queuedRequestsRef.current.push(() => logStart(track));
+      // Prevent duplicate calls for the same track
+      if (lastLoggedTrackIdRef.current === track.id) {
+        return;
       }
+
+      // Prevent concurrent calls
+      if (isLoggingRef.current) {
+        return;
+      }
+
+      // Clear any pending debounce timer
+      if (logStartTimeoutRef.current) {
+        clearTimeout(logStartTimeoutRef.current);
+        logStartTimeoutRef.current = null;
+      }
+
+      // Debounce: wait 300ms before actually logging
+      logStartTimeoutRef.current = setTimeout(async () => {
+        // Double-check we're not already logging this track
+        if (lastLoggedTrackIdRef.current === track.id || isLoggingRef.current) {
+          return;
+        }
+
+        isLoggingRef.current = true;
+
+        try {
+          const response = await logTrackStart({
+            trackId: track.id,
+            trackTitle: track.title,
+            trackArtist: track.artist,
+            trackGenre: track.genre,
+            trackMood: track.mood,
+            trackDuration: track.duration,
+          });
+          activeHistoryIdRef.current = response.historyId;
+          lastLoggedTrackIdRef.current = track.id; // Mark as logged
+        } catch (error: any) {
+          // Handle rate limiting - don't retry immediately
+          if (error?.statusCode === 429) {
+            console.warn('Rate limited on track start, will retry later');
+            // Don't queue for immediate retry on rate limit
+            // The next track change will try again
+          } else {
+            // Queue for retry if offline or other errors - use the callback directly
+            queuedRequestsRef.current.push(() => logStart(track));
+          }
+        } finally {
+          isLoggingRef.current = false;
+        }
+      }, 300);
     },
     [isAuthenticated],
   );
+
+  // Update ref after callback is created
+  logStartRef.current = logStart;
 
   /**
    * Log track completion
@@ -60,9 +104,16 @@ export function useListeningHistory() {
         durationPlayed: Math.floor(currentTime),
       });
       activeHistoryIdRef.current = null;
-    } catch (error) {
-      // Queue for retry
-      queuedRequestsRef.current.push(() => logComplete());
+      lastLoggedTrackIdRef.current = null; // Reset so next track can be logged
+    } catch (error: any) {
+      // Handle rate limiting
+      if (error?.statusCode === 429) {
+        console.warn('Rate limited on track complete');
+        // Don't retry immediately
+      } else {
+        // Queue for retry
+        queuedRequestsRef.current.push(() => logComplete());
+      }
     }
   }, [isAuthenticated, currentTrack, currentTime]);
 
@@ -78,30 +129,43 @@ export function useListeningHistory() {
         durationPlayed: Math.floor(currentTime),
       });
       activeHistoryIdRef.current = null;
-    } catch (error) {
-      // Queue for retry
-      queuedRequestsRef.current.push(() => logSkip());
+      lastLoggedTrackIdRef.current = null; // Reset so next track can be logged
+    } catch (error: any) {
+      // Handle rate limiting
+      if (error?.statusCode === 429) {
+        console.warn('Rate limited on track skip');
+        // Don't retry immediately
+      } else {
+        // Queue for retry
+        queuedRequestsRef.current.push(() => logSkip());
+      }
     }
   }, [isAuthenticated, currentTrack, currentTime]);
 
+  // Update ref after callback is created
+  logSkipRef.current = logSkip;
+
   // Effect: Log start when track changes
   useEffect(() => {
-    if (currentTrack && isAuthenticated) {
-      // If there's an active session for a different track, skip it first
-      if (activeHistoryIdRef.current) {
-        logSkip();
+    if (currentTrack && isAuthenticated && logStartRef.current) {
+      // Only log if track actually changed (not just a re-render)
+      if (lastLoggedTrackIdRef.current !== currentTrack.id) {
+        // If there's an active session for a different track, skip it first
+        if (activeHistoryIdRef.current && lastLoggedTrackIdRef.current && logSkipRef.current) {
+          logSkipRef.current();
+        }
+        logStartRef.current(currentTrack);
       }
-      logStart(currentTrack);
     }
 
-    // ⚠️ SAFE CLEANUP: Only auto-skip when track actually changes, not on unmount
-    // This prevents double-firing when component unmounts, user navigates, or tab reloads
-    // We handle skip in the effect above when new track starts, so cleanup is minimal
+    // Cleanup: clear debounce timer on unmount or track change
     return () => {
-      // Don't auto-skip on unmount - let the new track's effect handle it
-      // This prevents edge cases: component unmounts, page navigation, tab reloads
+      if (logStartTimeoutRef.current) {
+        clearTimeout(logStartTimeoutRef.current);
+        logStartTimeoutRef.current = null;
+      }
     };
-  }, [currentTrack?.id, isAuthenticated, logStart, logSkip]); // Only when track ID changes
+  }, [currentTrack?.id, isAuthenticated]); // Only depend on track ID and auth, not callbacks
 
   // No progress tracking effect needed
   // Progress already tracked in music player state (currentTime)

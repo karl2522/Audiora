@@ -275,5 +275,108 @@ export class AudiusService {
     }
     return track.streamUrl;
   }
+
+  /**
+   * Search tracks by genres
+   * Used for building candidate pool for Audiora DJ
+   */
+  async searchByGenres(genres: string[], limit: number): Promise<Track[]> {
+    if (!genres || genres.length === 0) {
+      return [];
+    }
+
+    // Search for each genre and combine results
+    const allTracks: Track[] = [];
+    const tracksPerGenre = Math.ceil(limit / genres.length);
+
+    for (const genre of genres) {
+      try {
+        const tracks = await this.searchTracks(genre, tracksPerGenre, 0);
+        allTracks.push(...tracks);
+      } catch (error: any) {
+        this.logger.warn(`Error searching for genre "${genre}": ${error.message}`);
+        // Continue with other genres
+      }
+    }
+
+    // Deduplicate by track ID
+    const uniqueTracks = this.deduplicateTracks(allTracks);
+    return uniqueTracks.slice(0, limit);
+  }
+
+  /**
+   * Search tracks by artists
+   * Used for building candidate pool for Audiora DJ
+   */
+  async searchByArtists(artists: string[], limit: number): Promise<Track[]> {
+    if (!artists || artists.length === 0) {
+      return [];
+    }
+
+    // Search for each artist and combine results
+    const allTracks: Track[] = [];
+    const tracksPerArtist = Math.ceil(limit / artists.length);
+
+    for (const artist of artists) {
+      try {
+        const tracks = await this.searchTracks(artist, tracksPerArtist, 0);
+        allTracks.push(...tracks);
+      } catch (error: any) {
+        this.logger.warn(`Error searching for artist "${artist}": ${error.message}`);
+        // Continue with other artists
+      }
+    }
+
+    // Deduplicate by track ID
+    const uniqueTracks = this.deduplicateTracks(allTracks);
+    return uniqueTracks.slice(0, limit);
+  }
+
+  /**
+   * Get discovery tracks (similar genres but new artists/tracks)
+   * Used for building candidate pool for Audiora DJ
+   */
+  async getDiscoveryTracks(
+    userGenres: string[],
+    limit: number,
+  ): Promise<Track[]> {
+    if (!userGenres || userGenres.length === 0) {
+      return [];
+    }
+
+    // Search for tracks in user's genres but with offset to get different tracks
+    // This helps discover new tracks within familiar genres
+    const allTracks: Track[] = [];
+    const tracksPerGenre = Math.ceil(limit / userGenres.length);
+
+    for (const genre of userGenres.slice(0, 3)) {
+      // Use offset to get different tracks (not top results)
+      try {
+        const tracks = await this.searchTracks(genre, tracksPerGenre, 10); // Offset 10 to skip top results
+        allTracks.push(...tracks);
+      } catch (error: any) {
+        this.logger.warn(`Error getting discovery tracks for genre "${genre}": ${error.message}`);
+        // Continue with other genres
+      }
+    }
+
+    // Deduplicate by track ID
+    const uniqueTracks = this.deduplicateTracks(allTracks);
+    return uniqueTracks.slice(0, limit);
+  }
+
+  /**
+   * Deduplicate tracks by ID
+   */
+  private deduplicateTracks(tracks: Track[]): Track[] {
+    const seen = new Set<string>();
+    return tracks.filter((track) => {
+      if (seen.has(track.id)) {
+        return false;
+      }
+      seen.add(track.id);
+      return true;
+    });
+  }
 }
 

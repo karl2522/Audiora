@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Music2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,9 +19,17 @@ interface SignInModalProps {
 
 export function SignInModal({ open, onOpenChange }: SignInModalProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const isRedirectingRef = useRef(false) // Prevent multiple redirects
 
   const handleGoogleSignIn = () => {
+    // Prevent multiple clicks/redirects
+    if (isRedirectingRef.current || isLoading) {
+      return
+    }
+    
+    isRedirectingRef.current = true
     setIsLoading(true)
+    
     // Redirect to backend OAuth endpoint
     // The backend will handle the Google OAuth flow and redirect back
     window.location.href = getGoogleOAuthUrl()

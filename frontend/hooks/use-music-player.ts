@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from 'react'
 import { Track } from '@/lib/music-client'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export interface UseMusicPlayerReturn {
   currentTrack: Track | null
@@ -36,12 +36,12 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
   // Use refs to avoid dependencies on queue/currentIndex
   const queueRef = useRef<Track[]>([])
   const currentIndexRef = useRef<number>(-1)
-  
+
   // Keep refs in sync
   useEffect(() => {
     queueRef.current = queue
   }, [queue])
-  
+
   useEffect(() => {
     currentIndexRef.current = currentIndex
   }, [currentIndex])
@@ -49,21 +49,17 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
   const handleNext = useCallback(() => {
     const currentQueue = queueRef.current
     const idx = currentIndexRef.current
-    
+
     if (currentQueue.length === 0 || idx === -1) return
 
-    // Remove the current track from the queue
-    let updatedQueue: Track[] = []
-    setQueue((prev) => {
-      if (prev.length === 0) return prev
-      updatedQueue = prev.filter((_, index) => index !== idx)
-      return updatedQueue
-    })
+    // 1. Calculate new queue synchronously (remove current track)
+    const updatedQueue = currentQueue.filter((_, index) => index !== idx)
 
-    // Update queue ref immediately for next operations
-    queueRef.current = updatedQueue
+    // 2. Update Queue State
+    setQueue(updatedQueue)
+    queueRef.current = updatedQueue // Update ref immediately for safety
 
-    // If queue is now empty, stop playback
+    // 3. Handle Empty Queue
     if (updatedQueue.length === 0) {
       setCurrentIndex(-1)
       currentIndexRef.current = -1
@@ -76,17 +72,24 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
       return
     }
 
-    // Calculate next index: 
-    // - If we removed the last item (idx was at the end), wrap to 0
-    // - Otherwise, the next track is now at the same index (since we removed one before it)
-    const nextIndex = idx >= updatedQueue.length ? 0 : idx
-    
+    // 4. Calculate Next Index
+    // The track that was at idx+1 is now at idx.
+    // So we stay at idx, unless idx is now out of bounds (was last item).
+    let nextIndex = idx
+    if (nextIndex >= updatedQueue.length) {
+      nextIndex = 0 // Wrap to start
+    }
+
+    // 5. Update Player State
     setCurrentIndex(nextIndex)
     currentIndexRef.current = nextIndex
-    setCurrentTrack(updatedQueue[nextIndex])
+    const nextTrack = updatedQueue[nextIndex]
+    setCurrentTrack(nextTrack)
     setIsPlaying(true)
+
+    // 6. Play Audio
     if (audioRef.current) {
-      audioRef.current.src = updatedQueue[nextIndex].streamUrl
+      audioRef.current.src = nextTrack.streamUrl
       audioRef.current.load()
       audioRef.current.play().catch((error) => {
         console.error('Error playing next track:', error)
@@ -109,7 +112,7 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
     }
     const audio = new Audio()
     audio.preload = 'metadata'
-    
+
     // Event listeners
     audio.addEventListener('loadedmetadata', () => {
       // Update duration from audio element (more accurate than track.duration)
@@ -130,12 +133,12 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
 
     audio.addEventListener('error', (e) => {
       const audioElement = e.target as HTMLAudioElement
-      
+
       // Ignore errors when src is empty or invalid (expected during initialization)
       if (!audioElement.src || audioElement.src === '' || audioElement.src === window.location.href) {
         return
       }
-      
+
       if (audioElement.error) {
         // Only log meaningful errors (not empty src errors)
         if (audioElement.error.code !== 4) { // MEDIA_ELEMENT_ERROR: Empty src
@@ -157,10 +160,10 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
       // Only cleanup on actual unmount, not on re-renders
       if (audioRef.current === audio) {
         // Remove all event listeners to prevent memory leaks
-        audio.removeEventListener('loadedmetadata', () => {})
-        audio.removeEventListener('timeupdate', () => {})
-        audio.removeEventListener('ended', () => {})
-        audio.removeEventListener('error', () => {})
+        audio.removeEventListener('loadedmetadata', () => { })
+        audio.removeEventListener('timeupdate', () => { })
+        audio.removeEventListener('ended', () => { })
+        audio.removeEventListener('error', () => { })
         audio.pause()
         audio.src = ''
         audioRef.current = null
@@ -172,7 +175,7 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
   const currentTrackIdRef = useRef<string | null>(null)
   // Track current track state via ref to avoid dependencies
   const currentTrackRef = useRef<Track | null>(null)
-  
+
   // Keep ref in sync with state
   useEffect(() => {
     currentTrackRef.current = currentTrack
@@ -202,7 +205,7 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
     }
 
     const audio = audioRef.current
-    
+
     // SECURITY: Validate stream URL before setting
     if (!currentTrack.streamUrl || typeof currentTrack.streamUrl !== 'string' || currentTrack.streamUrl.trim() === '') {
       return
@@ -237,12 +240,12 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
     // Only update if the URL has changed
     const currentSrc = audio.src || ''
     const newSrc = currentTrack.streamUrl
-    
+
     // Normalize URLs for comparison (remove trailing slashes, etc.)
     const normalizeUrl = (url: string) => url.replace(/\/$/, '')
     const normalizedCurrent = normalizeUrl(currentSrc)
     const normalizedNew = normalizeUrl(newSrc)
-    
+
     // Check if URL is different
     if (normalizedCurrent !== normalizedNew) {
       // SECURITY: Ensure we're not setting a page URL as audio source
@@ -257,18 +260,18 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
         }
         return
       }
-      
+
       try {
         // Set duration from track object immediately (fallback until audio metadata loads)
         if (currentTrack.duration && currentTrack.duration > 0) {
           setDuration(currentTrack.duration)
         }
-        
+
         audio.src = newSrc
         audio.load()
         setCurrentTime(0)
         currentTrackIdRef.current = currentTrack.id // Update ref
-        
+
         // Auto-play when track changes (if was playing)
         if (isPlaying) {
           const playAudio = () => {
@@ -280,7 +283,7 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
               setIsPlaying(false)
             })
           }
-          
+
           // Try to play immediately, or wait for canplay event
           if (audio.readyState >= 2) { // HAVE_CURRENT_DATA
             playAudio()
@@ -299,7 +302,7 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
     } else {
       // URL is the same, update the ref but don't reload
       currentTrackIdRef.current = currentTrack.id
-      
+
       if (isPlaying && audio.paused) {
         // URL is the same but audio is paused, resume playing
         audio.play().catch((error) => {
@@ -354,7 +357,7 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
       }
       return
     }
-    
+
     // Add track to queue if not already there
     let trackIndex = -1
     setQueue((prev) => {
@@ -370,12 +373,12 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
         return prev
       }
     })
-    
+
     // Update index and current track synchronously
     if (trackIndex !== -1) {
       setCurrentIndex(trackIndex)
     }
-    
+
     // Set as current track - useEffect will handle audio loading and playing
     setCurrentTrack(track)
     setIsPlaying(true)
@@ -405,7 +408,7 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
   const handlePrevious = useCallback(() => {
     const currentQueue = queueRef.current
     const idx = currentIndexRef.current
-    
+
     if (currentQueue.length === 0 || idx === -1) return
 
     const prevIndex = idx === 0 ? currentQueue.length - 1 : idx - 1
@@ -437,13 +440,13 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
       }
       return 'duplicate'
     }
-    
+
     // Check current track via ref to avoid dependency
     const current = currentTrackRef.current
     if (current && current.id === track.id) {
       return 'already-playing'
     }
-    
+
     // Use functional update - this should NOT affect current playback
     let added = false
     setQueue((prev) => {
@@ -455,7 +458,7 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
       added = true
       return [...prev, track]
     })
-    
+
     // CRITICAL: Don't touch currentTrack, isPlaying, audioRef, or any playback state
     // This function should ONLY update the queue array
     return added ? 'success' : 'duplicate'
