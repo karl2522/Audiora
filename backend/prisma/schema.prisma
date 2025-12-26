@@ -17,6 +17,7 @@ model User {
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at")
   refreshTokens RefreshToken[]
+  playHistory   PlayHistory[]
 
   @@index([googleId])
   @@index([email])
@@ -38,6 +39,44 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+model PlayHistory {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  trackId         String   @map("track_id") @db.VarChar(255)
+  
+  // Track metadata (denormalized for queries - AI needs)
+  trackTitle      String   @map("track_title") @db.VarChar(500)
+  trackArtist     String   @map("track_artist") @db.VarChar(255)
+  trackGenre      String?  @map("track_genre") @db.VarChar(100) // Single primary genre
+  trackMood       String?  @map("track_mood") @db.VarChar(100) // Single primary mood
+  
+  // Playback data (AI-critical fields)
+  startedAt       DateTime @map("started_at") // ✅ AI needs
+  completedAt     DateTime? @map("completed_at")
+  skippedAt       DateTime? @map("skipped_at")
+  
+  // Duration tracking (AI-critical)
+  durationPlayed  Int      @default(0) @map("duration_played") // seconds played - ✅ AI needs (default 0 avoids null bugs)
+  trackDuration   Int      @map("track_duration") // total track duration - ✅ AI needs
+  
+  // Status flags (AI-critical)
+  completed       Boolean  @default(false) // ✅ AI needs - completion rate
+  skipped         Boolean  @default(false) // ✅ AI needs - skip patterns
+  
+  // Timestamps
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([startedAt])
+  @@index([userId, startedAt])
+  // Note: Add userId+trackId and userId+trackGenre indexes later if query patterns require them
+  @@map("play_history")
 }
 
 model migrations {

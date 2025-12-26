@@ -12,6 +12,7 @@ import { useState, useCallback, useEffect } from "react"
 import { searchTracks, Track } from "@/lib/music-client"
 import { useMusicPlayerContext } from "@/contexts/music-player-context"
 import { useAuth } from "@/contexts/auth-context"
+import { useListeningHistory } from "@/hooks/use-listening-history"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Music2 } from "lucide-react"
 import { SignInModal } from "@/components/auth/sign-in-modal"
@@ -27,6 +28,9 @@ export default function ListeningPage() {
   const { play, addToQueue, currentTrack } = useMusicPlayerContext()
   const { isAuthenticated } = useAuth()
   const [isSignInOpen, setIsSignInOpen] = useState(false)
+
+  // Initialize listening history tracking (only tracks if authenticated)
+  useListeningHistory()
 
   const handleSearch = useCallback(async (query: string, retryCount = 0) => {
     // SECURITY: Validate and sanitize input
@@ -60,6 +64,16 @@ export default function ListeningPage() {
     try {
       const response = await searchTracks(normalizedQuery, 20)
       const tracks = response?.tracks || []
+      
+      // Debug: Log tracks received
+      if (tracks.length > 0) {
+        console.log('[DEBUG] ListeningPage received tracks:', tracks.length);
+        console.log('[DEBUG] First track:', {
+          title: tracks[0].title,
+          duration: tracks[0].duration,
+          durationType: typeof tracks[0].duration,
+        });
+      }
       
       if (tracks.length > 0) {
         setSearchResults(tracks)

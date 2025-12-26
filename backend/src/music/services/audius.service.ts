@@ -88,6 +88,7 @@ export class AudiusService {
 
   /**
    * Normalize Audius track to our Track interface
+   * Captures ALL available data for AI processing
    */
   private normalizeTrack(audiusTrack: AudiusTrack): Track {
     // Get best quality artwork
@@ -98,20 +99,47 @@ export class AudiusService {
       audiusTrack.user.profile_picture?.['480x480'] ||
       undefined;
 
+    // Audius API returns duration in SECONDS (not milliseconds!)
+    // According to Audius API docs: duration is an integer representing track length in seconds
+    const rawDuration = audiusTrack.duration;
+    let durationInSeconds = 0;
+    
+    if (rawDuration !== undefined && rawDuration !== null) {
+      if (typeof rawDuration === 'number' && rawDuration > 0) {
+        // Audius returns duration in seconds, use as-is
+        durationInSeconds = Math.floor(rawDuration);
+      } else if (typeof rawDuration === 'number' && rawDuration === 0) {
+        // Duration is explicitly 0
+        durationInSeconds = 0;
+        this.logger.warn(`Track ${audiusTrack.id} has duration 0`);
+      }
+    } else {
+      // Duration is missing/undefined
+      this.logger.warn(`Track ${audiusTrack.id} missing duration field`);
+    }
+
     return {
       id: audiusTrack.id,
       title: audiusTrack.title,
       artist: audiusTrack.user.name || audiusTrack.user.handle,
       artistId: audiusTrack.user.id,
+      artistHandle: audiusTrack.user.handle,
+      artistBio: audiusTrack.user.bio,
+      artistLocation: audiusTrack.user.location,
+      artistFollowerCount: audiusTrack.user.follower_count,
       artwork,
       streamUrl: audiusTrack.stream_url || this.getStreamUrl(audiusTrack.id),
-      duration: Math.floor(audiusTrack.duration / 1000), // Convert ms to seconds
+      duration: durationInSeconds, // Convert ms to seconds, default to 0 if invalid
       genre: audiusTrack.genre,
+      mood: audiusTrack.mood,
+      tags: audiusTrack.tags?.split(',').map((t) => t.trim()).filter(Boolean) || [],
+      description: audiusTrack.description,
       playCount: audiusTrack.play_count,
       favoriteCount: audiusTrack.favorite_count,
+      repostCount: audiusTrack.repost_count,
       createdAt: audiusTrack.created_at,
-      description: audiusTrack.description,
-      tags: audiusTrack.tags?.split(',').map((t) => t.trim()) || [],
+      releaseDate: audiusTrack.release_date,
+      permalink: audiusTrack.permalink,
     };
   }
 
@@ -155,7 +183,26 @@ export class AudiusService {
       const filteredTracks = response.data.filter((track) => track.is_streamable !== false);
       this.logger.log(`Filtered to ${filteredTracks.length} streamable tracks`);
 
-      return filteredTracks.map((track) => this.normalizeTrack(track));
+      // Log sample track durations for debugging
+      if (filteredTracks.length > 0) {
+        const sampleTrack = filteredTracks[0];
+        this.logger.log(`[DEBUG] Sample track from Audius API:`);
+        this.logger.log(`  - Title: ${sampleTrack.title}`);
+        this.logger.log(`  - Duration (raw from API): ${sampleTrack.duration} (type: ${typeof sampleTrack.duration})`);
+        this.logger.log(`  - Duration is in SECONDS (per Audius API docs)`);
+        this.logger.log(`  - Full track keys: ${Object.keys(sampleTrack).join(', ')}`);
+      }
+
+      const normalizedTracks = filteredTracks.map((track) => {
+        const normalized = this.normalizeTrack(track);
+        if (normalized.id === filteredTracks[0]?.id) {
+          this.logger.log(`[DEBUG] After normalization:`);
+          this.logger.log(`  - Duration: ${normalized.duration}s`);
+        }
+        return normalized;
+      });
+
+      return normalizedTracks;
     } catch (error: any) {
       this.logger.error(`Error searching tracks: ${error.message}`, error.stack);
       throw error;

@@ -65,7 +65,7 @@ export class CacheService {
     const entry = this.cache.get(key);
     if (this.isValid(entry)) {
       this.logger.debug(`Cache HIT for key: ${key}`);
-      return entry.data as T;
+      return entry!.data as T; // Safe to use ! here because isValid checks entry exists
     }
     // Remove expired entry
     if (entry) {

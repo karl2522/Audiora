@@ -16,7 +16,10 @@ interface TrackListProps {
 }
 
 export const TrackList = memo(function TrackList({ tracks, onTrackSelect, onAddToQueue, currentTrackId, isLoading }: TrackListProps) {
-  const formatDuration = (seconds: number) => {
+  const formatDuration = (seconds: number | undefined) => {
+    if (!seconds || !isFinite(seconds) || isNaN(seconds) || seconds <= 0) {
+      return "0:00"
+    }
     const mins = Math.floor(seconds / 60)
     const secs = Math.floor(seconds % 60)
     return `${mins}:${secs.toString().padStart(2, '0')}`
@@ -92,7 +95,19 @@ export const TrackList = memo(function TrackList({ tracks, onTrackSelect, onAddT
                 {/* Duration and Actions */}
                 <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
                   <span className="text-xs md:text-sm text-muted-foreground hidden sm:inline">
-                    {formatDuration(track.duration)}
+                    {(() => {
+                      const formatted = formatDuration(track.duration);
+                      // Debug log for first track
+                      if (track.id === tracks[0]?.id && process.env.NODE_ENV === 'development') {
+                        console.log('[DEBUG] TrackList formatting duration:', {
+                          trackId: track.id,
+                          title: track.title,
+                          rawDuration: track.duration,
+                          formatted,
+                        });
+                      }
+                      return formatted;
+                    })()}
                   </span>
                   {onAddToQueue && (
                     <Button

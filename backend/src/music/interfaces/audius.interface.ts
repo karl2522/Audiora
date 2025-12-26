@@ -63,21 +63,30 @@ export interface AudiusTrackResponse {
 
 /**
  * Normalized Track Interface (for our application)
+ * Includes ALL available data from Audius API for AI processing
  */
 export interface Track {
   id: string;
   title: string;
   artist: string;
   artistId: string;
+  artistHandle?: string;
+  artistBio?: string;
+  artistLocation?: string;
+  artistFollowerCount?: number;
   artwork?: string;
   streamUrl: string;
   duration: number; // in seconds
   genre?: string;
+  mood?: string;
+  tags?: string[];
+  description?: string;
   playCount?: number;
   favoriteCount?: number;
+  repostCount?: number;
   createdAt?: string;
-  description?: string;
-  tags?: string[];
+  releaseDate?: string;
+  permalink?: string;
 }
 
 /**

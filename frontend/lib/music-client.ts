@@ -5,20 +5,31 @@
 import { apiRequest } from './api-client';
 import { musicCache } from './music-cache';
 
+/**
+ * Track Interface - Includes ALL available data from Audius API for AI processing
+ */
 export interface Track {
   id: string;
   title: string;
   artist: string;
   artistId: string;
+  artistHandle?: string;
+  artistBio?: string;
+  artistLocation?: string;
+  artistFollowerCount?: number;
   artwork?: string;
   streamUrl: string;
   duration: number; // in seconds
   genre?: string;
+  mood?: string;
+  tags?: string[];
+  description?: string;
   playCount?: number;
   favoriteCount?: number;
+  repostCount?: number;
   createdAt?: string;
-  description?: string;
-  tags?: string[];
+  releaseDate?: string;
+  permalink?: string;
 }
 
 export interface SearchTracksResponse {
@@ -69,6 +80,17 @@ export async function searchTracks(
   
   try {
     const response = await apiRequest<SearchTracksResponse>(`/music/search?${params.toString()}`);
+    
+    // Debug: Log first track duration received from API
+    if (response?.tracks && response.tracks.length > 0) {
+      const firstTrack = response.tracks[0];
+      console.log('[DEBUG] Frontend received track:', {
+        title: firstTrack.title,
+        duration: firstTrack.duration,
+        durationType: typeof firstTrack.duration,
+        allKeys: Object.keys(firstTrack),
+      });
+    }
     
     // Cache the response
     if (response && response.tracks && response.tracks.length > 0) {

@@ -112,7 +112,11 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
     
     // Event listeners
     audio.addEventListener('loadedmetadata', () => {
-      setDuration(audio.duration)
+      // Update duration from audio element (more accurate than track.duration)
+      // But only if it's valid (audio.duration can be NaN)
+      if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration)
+      }
     })
 
     audio.addEventListener('timeupdate', () => {
@@ -255,6 +259,11 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
       }
       
       try {
+        // Set duration from track object immediately (fallback until audio metadata loads)
+        if (currentTrack.duration && currentTrack.duration > 0) {
+          setDuration(currentTrack.duration)
+        }
+        
         audio.src = newSrc
         audio.load()
         setCurrentTime(0)
