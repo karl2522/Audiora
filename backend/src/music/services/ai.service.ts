@@ -54,16 +54,21 @@ export class AIService {
 
         console.log('[AIService] 🤖 Generating AI session parameters...');
 
+        // SANITIZATION: Clean inputs to prevent prompt injection
+        const safeGenres = profile.topGenres.map(g => this.sanitizeInput(g)).join(', ');
+        const safeArtists = profile.topArtists.map(a => this.sanitizeInput(a)).join(', ');
+        const safeMoods = profile.moodPreference.map(m => this.sanitizeInput(m)).join(', ');
+
         const prompt = `
       You are the "Brain" of the Audiora DJ.
       Your goal is to configure the music recommendation engine for a specific user session.
       
-      CONTEXT: ${context}
+      CONTEXT: ${this.sanitizeInput(context)}
       
       USER PROFILE:
-      - Top Genres: ${profile.topGenres.join(', ')}
-      - Top Artists: ${profile.topArtists.join(', ')}
-      - Preferred Moods: ${profile.moodPreference.join(', ')}
+      - Top Genres: ${safeGenres}
+      - Top Artists: ${safeArtists}
+      - Preferred Moods: ${safeMoods}
       - Discovery Rate: ${profile.discoveryRate}
       
       TASK:
@@ -104,6 +109,12 @@ export class AIService {
             const params = JSON.parse(jsonStr);
             const validatedParams = AISessionSchema.parse(params);
 
+            // SANITIZATION: Clean output to prevent XSS
+            // Although React escapes by default, we strip dangerous characters just in case
+            validatedParams.vibe_description = validatedParams.vibe_description
+                .replace(/[<>]/g, '') // Remove potential HTML tags
+                .trim();
+
             return validatedParams;
         } catch (error: any) {
             console.error('[AIService] ❌ Failed to generate AI parameters (All models failed):', error.message);
@@ -112,6 +123,19 @@ export class AIService {
             }
             return null; // Trigger fallback
         }
+    }
+
+    /**
+     * Sanitize input strings to prevent prompt injection
+     * Removes control characters and limits length
+     */
+    private sanitizeInput(input: string): string {
+        if (!input) return '';
+        return input
+            .replace(/[\r\n\t]/g, ' ') // Remove newlines/tabs
+            .replace(/[^\w\s\-\.,]/gi, '') // Keep only alphanumeric, spaces, dashes, dots, commas
+            .trim()
+            .substring(0, 100); // Limit length
     }
 
     private async generateWithFallback(prompt: string): Promise<string | null> {

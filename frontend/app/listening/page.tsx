@@ -28,9 +28,15 @@ export default function ListeningPage() {
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [vibeDescription, setVibeDescription] = useState<string | undefined>()
 
-  const { play, addToQueue, clearQueue, replaceQueue, currentTrack } = useMusicPlayerContext()
+  const { play, addToQueue, clearQueue: contextClearQueue, replaceQueue, currentTrack } = useMusicPlayerContext()
   const { isAuthenticated, isLoading: isAuthLoading, authStatus } = useAuth()
   const [isSignInOpen, setIsSignInOpen] = useState(false)
+
+  // Wrapper to clear vibe description when queue is cleared
+  const handleClearQueue = useCallback(() => {
+    contextClearQueue()
+    setVibeDescription(undefined)
+  }, [contextClearQueue])
 
   // Initialize listening history tracking (only tracks if authenticated)
   useListeningHistory()
@@ -301,7 +307,11 @@ export default function ListeningPage() {
                 <DJSelector onGenerate={handleGeneratePlaylist} isGenerating={isGenerating} />
                 {/* Queue Panel - Same size as left containers */}
                 <div className="flex-1 min-h-0 overflow-hidden">
-                  <QueuePanel vibeDescription={vibeDescription} onRegenerate={handleRegenerate} />
+                  <QueuePanel
+                    vibeDescription={vibeDescription}
+                    onRegenerate={handleRegenerate}
+                    onClearQueue={handleClearQueue}
+                  />
                 </div>
               </>
             ) : (

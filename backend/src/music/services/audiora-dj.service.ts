@@ -36,9 +36,13 @@ export class AudioraDJService {
     maxSessionLength: number = 50,
   ): Promise<AudioraDJPlaylist> {
     // Validate and clamp session length
+    // Fix: Explicitly handle NaN inputs
+    const safeSessionLength = isNaN(sessionLength) ? 15 : sessionLength;
+    const safeMaxSessionLength = isNaN(maxSessionLength) ? 50 : maxSessionLength;
+
     const validatedSessionLength = Math.min(
-      Math.max(1, sessionLength), // Minimum 1 track
-      maxSessionLength, // Maximum 50 tracks (or custom max)
+      Math.max(1, safeSessionLength), // Minimum 1 track
+      safeMaxSessionLength, // Maximum 50 tracks (or custom max)
     );
 
     // Check cache first

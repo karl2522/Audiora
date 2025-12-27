@@ -11,10 +11,11 @@ import Image from "next/image"
 interface QueuePanelProps {
   vibeDescription?: string
   onRegenerate?: () => void
+  onClearQueue?: () => void
 }
 
-export function QueuePanel({ vibeDescription, onRegenerate }: QueuePanelProps) {
-  const { queue, currentTrack, play, clearQueue } = useMusicPlayerContext()
+export function QueuePanel({ vibeDescription, onRegenerate, onClearQueue }: QueuePanelProps) {
+  const { queue, currentTrack, play } = useMusicPlayerContext()
 
   const formatDuration = (seconds: number | undefined) => {
     if (!seconds || !isFinite(seconds) || isNaN(seconds) || seconds <= 0) {
@@ -48,7 +49,7 @@ export function QueuePanel({ vibeDescription, onRegenerate }: QueuePanelProps) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={clearQueue}
+              onClick={onClearQueue}
               className="h-6 w-6 md:h-7 md:w-7 hover:bg-destructive/10 hover:text-destructive rounded-full cursor-pointer"
               title="Clear queue"
             >
