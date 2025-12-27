@@ -162,7 +162,7 @@ export function DJSelector() {
       <Button
         onClick={handleGeneratePlaylist}
         disabled={isGenerating}
-        className="h-9 md:h-10 lg:h-12 xl:h-14 rounded-lg md:rounded-xl lg:rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 text-sm md:text-sm lg:text-base xl:text-lg px-3 md:px-4 lg:px-6 flex-shrink-0"
+        className="h-9 md:h-10 lg:h-12 xl:h-14 min-w-[100px] md:min-w-[120px] rounded-lg md:rounded-xl lg:rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md hover:shadow-lg text-sm md:text-sm lg:text-base xl:text-lg px-3 md:px-4 lg:px-6 flex-shrink-0 cursor-pointer"
       >
         {isGeneratingThis ? (
           <Loader2 className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 animate-spin" />
