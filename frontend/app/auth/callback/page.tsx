@@ -5,6 +5,9 @@ import { Music2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 
+// Force dynamic rendering - this page needs runtime data
+export const dynamic = 'force-dynamic'
+
 export default function AuthCallbackPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
