@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+
 export const metadata: Metadata = {
     title: "Audiora – Your Personalized AI Music DJ",
     description:
