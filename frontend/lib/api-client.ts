@@ -209,25 +209,19 @@ export async function apiRequest<T = any>(
 
   // Handle responses
   const contentType = response.headers.get('content-type');
-  console.log('Response content-type:', contentType);
-  console.log('Response status:', response.status);
 
   // Try to parse as JSON regardless of content-type header
   // Some servers don't set content-type correctly
   try {
     const text = await response.text();
-    console.log('Response text (first 500 chars):', text.substring(0, 500));
 
     if (!text || text.trim() === '') {
-      console.warn('Empty response body');
       return {} as T;
     }
 
     const json = JSON.parse(text);
-    console.log('Parsed JSON response:', json);
     return json as T;
   } catch (parseError) {
-    console.error('Failed to parse response as JSON:', parseError);
     // If content-type says JSON but parsing failed, throw error
     if (contentType && contentType.includes('application/json')) {
       throw new Error('Invalid JSON response from server');
