@@ -164,19 +164,23 @@ export default function ListeningPage() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-background text-foreground bg-pattern-grid-light">
       {/* Header */}
-      <div className="absolute top-4 left-4 right-4 md:top-6 md:left-6 md:right-6 lg:top-8 lg:left-12 lg:right-12 z-10 flex items-center justify-between">
-        {/* Back Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.back()}
-          className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-background/80 backdrop-blur-sm border border-border hover:bg-background hover:scale-105 transition-all cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
-        </Button>
+      <div className="absolute top-4 left-4 right-4 md:top-6 md:left-6 md:right-6 lg:top-8 lg:left-12 lg:right-12 z-10 flex items-center">
+        {/* Back Button - Only show when NOT logged in */}
+        {!isAuthenticated && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.back()}
+            className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-background/80 backdrop-blur-sm border border-border hover:bg-background hover:scale-105 transition-all cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
+          </Button>
+        )}
 
         {/* User Profile */}
-        <UserProfile />
+        <div className="ml-auto">
+          <UserProfile />
+        </div>
       </div>
 
       <div className="w-full h-screen flex flex-col pt-16 md:pt-20 lg:pt-24 px-4 md:px-8 lg:px-12 xl:px-20 pb-4 md:pb-6 lg:pb-8">
