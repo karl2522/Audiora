@@ -86,7 +86,24 @@ export function SignInModal({ open, onOpenChange }: SignInModalProps) {
           </Button>
 
           <p className="text-xs text-center text-muted-foreground">
-            By continuing, you agree to Audiora's Terms of Service and Privacy Policy
+            By continuing, you agree to Audiora's{" "}
+            <a
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground underline hover:opacity-80 transition-opacity"
+            >
+              Terms of Service
+            </a>
+            {" "}and{" "}
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground underline hover:opacity-80 transition-opacity"
+            >
+              Privacy Policy
+            </a>
           </p>
         </div>
       </DialogContent>
