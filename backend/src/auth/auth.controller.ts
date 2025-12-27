@@ -61,7 +61,7 @@ export class AuthController {
     res.cookie('refreshToken', tokens.refreshToken, {
       httpOnly: true,
       secure: isProduction,
-      sameSite: 'strict',
+      sameSite: isProduction ? 'none' : 'lax', // 'none' required for cross-site cookies in production
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
     });
@@ -70,7 +70,7 @@ export class AuthController {
     res.cookie('accessToken', tokens.accessToken, {
       httpOnly: true,
       secure: isProduction,
-      sameSite: 'strict',
+      sameSite: isProduction ? 'none' : 'lax', // 'none' required for cross-site cookies in production
       maxAge: 15 * 60 * 1000, // 15 minutes (matches access token expiry)
       path: '/',
     });
@@ -104,7 +104,7 @@ export class AuthController {
     res.cookie('refreshToken', tokens.refreshToken, {
       httpOnly: true,
       secure: isProduction,
-      sameSite: 'strict',
+      sameSite: isProduction ? 'none' : 'lax', // 'none' required for cross-site cookies in production
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
     });
@@ -113,7 +113,7 @@ export class AuthController {
     res.cookie('accessToken', tokens.accessToken, {
       httpOnly: true,
       secure: isProduction,
-      sameSite: 'strict',
+      sameSite: isProduction ? 'none' : 'lax', // 'none' required for cross-site cookies in production
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/',
     });
@@ -182,7 +182,7 @@ export class AuthController {
     res.clearCookie('refreshToken', {
       httpOnly: true,
       secure: isProduction,
-      sameSite: 'strict',
+      sameSite: isProduction ? 'none' : 'lax', // Must match cookie settings
       path: '/',
     });
 
@@ -190,7 +190,7 @@ export class AuthController {
     res.clearCookie('accessToken', {
       httpOnly: true,
       secure: isProduction,
-      sameSite: 'strict',
+      sameSite: isProduction ? 'none' : 'lax', // Must match cookie settings
       path: '/',
     });
 

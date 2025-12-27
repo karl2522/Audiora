@@ -36,22 +36,37 @@ async function bootstrap() {
     ? corsOrigin.split(',').map(origin => origin.trim())
     : ['http://localhost:3000']; // Only allow localhost in development
 
-  console.log('🔒 CORS allowed origins:', allowedOrigins);
+  console.log('🔒 CORS Configuration:');
+  console.log('   Environment:', nodeEnv);
+  console.log('   Allowed origins:', allowedOrigins);
 
   app.enableCors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) {
+        console.log('✅ CORS: Allowing request with no origin');
         return callback(null, true);
       }
 
+      // Check if origin is in allowed list
       if (allowedOrigins.includes(origin)) {
+        console.log(`✅ CORS: Allowing origin: ${origin}`);
         callback(null, true);
-      } else {
-        console.error(`❌ CORS blocked origin: ${origin}`);
-        console.error(`   Allowed origins: ${allowedOrigins.join(', ')}`);
-        callback(new Error('Not allowed by CORS'));
+        return;
       }
+
+      // In production, also allow Vercel preview deployments
+      if (nodeEnv === 'production' && origin.endsWith('.vercel.app')) {
+        console.log(`✅ CORS: Allowing Vercel preview: ${origin}`);
+        callback(null, true);
+        return;
+      }
+
+      // Block the request
+      console.error(`❌ CORS BLOCKED: ${origin}`);
+      console.error(`   Allowed origins: ${allowedOrigins.join(', ')}`);
+      console.error(`   Environment: ${nodeEnv}`);
+      callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
