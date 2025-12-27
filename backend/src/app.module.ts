@@ -62,19 +62,31 @@ class RedisThrottlerStorage implements ThrottlerStorage {
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const redis = new Redis({
-          host: config.get('REDIS_HOST', 'localhost'),
-          port: config.get('REDIS_PORT', 6379),
-          password: config.get('REDIS_PASSWORD', undefined),
-          retryStrategy: (times) => {
-            // Exponential backoff with max 2 seconds
-            const delay = Math.min(times * 50, 2000);
-            return delay;
-          },
-          maxRetriesPerRequest: 3,
-          enableReadyCheck: true,
-          lazyConnect: false,
-        });
+        // Railway provides REDIS_URL, local dev uses REDIS_HOST/PORT/PASSWORD
+        const redisUrl = config.get('REDIS_URL');
+
+        const redis = redisUrl
+          ? new Redis(redisUrl, {
+            retryStrategy: (times) => {
+              const delay = Math.min(times * 50, 2000);
+              return delay;
+            },
+            maxRetriesPerRequest: 3,
+            enableReadyCheck: true,
+            lazyConnect: false,
+          })
+          : new Redis({
+            host: config.get('REDIS_HOST', 'localhost'),
+            port: config.get('REDIS_PORT', 6379),
+            password: config.get('REDIS_PASSWORD', undefined),
+            retryStrategy: (times) => {
+              const delay = Math.min(times * 50, 2000);
+              return delay;
+            },
+            maxRetriesPerRequest: 3,
+            enableReadyCheck: true,
+            lazyConnect: false,
+          });
 
         // Handle Redis connection errors gracefully
         redis.on('error', (err) => {
