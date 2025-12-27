@@ -1,15 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { HistoryService } from './history.service';
-import { AudiusService } from './audius.service';
-import { CacheService } from './cache.service';
-import { PlayHistoryRepository } from '../repositories/play-history.repository';
-import { UserTasteProfile } from '../dto/history.dto';
-import { Track } from '../interfaces/audius.interface';
 import {
   AudioraDJPlaylist,
-  TrackScore,
   CandidatePoolOptions,
+  TrackScore,
 } from '../dto/dj.dto';
+import { UserTasteProfile } from '../dto/history.dto';
+import { Track } from '../interfaces/audius.interface';
+import { PlayHistoryRepository } from '../repositories/play-history.repository';
+import { AIBSessionParameters, AIService } from './ai.service';
+import { AudiusService } from './audius.service';
+import { CacheService } from './cache.service';
+import { HistoryService } from './history.service';
 
 @Injectable()
 export class AudioraDJService {
@@ -20,7 +21,8 @@ export class AudioraDJService {
     private audiusService: AudiusService,
     private cacheService: CacheService,
     private playHistoryRepository: PlayHistoryRepository,
-  ) {}
+    private aiService: AIService,
+  ) { }
 
   /**
    * Generate personalized playlist for user
@@ -46,6 +48,7 @@ export class AudioraDJService {
       this.logger.debug(`Cache HIT for Audiora DJ playlist: ${userId}`);
       return cached;
     }
+    // this.logger.log(`Cache bypassed for testing AI integration`);
 
     // Get user taste profile
     const profile = await this.historyService.buildUserTasteProfile(userId);
@@ -56,12 +59,26 @@ export class AudioraDJService {
       return this.getFallbackPlaylist(userId, validatedSessionLength);
     }
 
+    // 🧠 AI INTEGRATION: Get Session Parameters
+    const context = `Time: ${new Date().toLocaleTimeString()}, Day: ${new Date().toLocaleDateString('en-US', { weekday: 'long' })}`;
+    let aiParams: AIBSessionParameters | null = null;
+
+    try {
+      aiParams = await this.aiService.getSessionParameters(profile, context);
+      if (aiParams) {
+        this.logger.log(`🤖 AI Session Parameters: ${JSON.stringify(aiParams)}`);
+      }
+    } catch (error) {
+      this.logger.warn('Failed to get AI parameters, falling back to rule-based logic');
+    }
+
     // Build candidate pool
     const candidates = await this.buildCandidatePool(userId, profile, {
       maxCandidates: 500,
       includeDiscovery: true,
       discoveryPercentage: 0.2,
       excludeRecentDays: 7,
+      excludeGenres: aiParams?.filters?.exclude_genres, // Apply AI filters
     });
 
     if (candidates.length === 0) {
@@ -70,7 +87,12 @@ export class AudioraDJService {
     }
 
     // Score all tracks (batched for performance)
-    const scoredTracks = await this.batchScoreTracks(candidates, profile, userId);
+    const scoredTracks = await this.batchScoreTracks(
+      candidates,
+      profile,
+      userId,
+      aiParams?.weights // Pass AI weights
+    );
 
     // Sort by score (highest first)
     scoredTracks.sort((a, b) => b.score - a.score);
@@ -89,6 +111,7 @@ export class AudioraDJService {
       generatedAt: new Date(),
       tracks: shuffled,
       sessionLength: shuffled.length,
+      vibeDescription: aiParams?.vibe_description || "Personalized mix based on your taste", // Fallback description
       metadata: {
         avgCompletionRate: profile.avgTrackCompletionRate,
         topGenres: profile.topGenres.slice(0, 3),
@@ -115,13 +138,14 @@ export class AudioraDJService {
   private async buildCandidatePool(
     userId: string,
     profile: UserTasteProfile,
-    options: CandidatePoolOptions = {},
+    options: CandidatePoolOptions & { excludeGenres?: string[] } = {},
   ): Promise<Track[]> {
     const {
       maxCandidates = 500,
       includeDiscovery = true,
       discoveryPercentage = 0.2,
       excludeRecentDays = 7,
+      excludeGenres = [],
     } = options;
 
     // Get recently played track IDs
@@ -148,18 +172,20 @@ export class AudioraDJService {
     const discoveryTracks =
       discoveryLimit > 0
         ? await this.audiusService.getDiscoveryTracks(
-            profile.topGenres,
-            discoveryLimit,
-          )
+          profile.topGenres,
+          discoveryLimit,
+        )
         : [];
 
     // Combine and deduplicate
     const allTracks = [...genreTracks, ...artistTracks, ...discoveryTracks];
     const uniqueTracks = this.deduplicateTracks(allTracks);
 
-    // Filter out skip-heavy genres
+    // Filter out skip-heavy genres AND AI-excluded genres
     const filtered = uniqueTracks.filter(
-      (track) => !profile.skipHeavyGenres.includes(track.genre || ''),
+      (track) =>
+        !profile.skipHeavyGenres.includes(track.genre || '') &&
+        !excludeGenres.includes(track.genre || '')
     );
 
     // Filter out recently played
@@ -181,6 +207,7 @@ export class AudioraDJService {
     tracks: Track[],
     profile: UserTasteProfile,
     userId: string,
+    weights?: AIBSessionParameters['weights'],
   ): Promise<TrackScore[]> {
     const BATCH_SIZE = 100; // Process 100 tracks at a time
     const scoredTracks: TrackScore[] = [];
@@ -188,7 +215,7 @@ export class AudioraDJService {
     for (let i = 0; i < tracks.length; i += BATCH_SIZE) {
       const batch = tracks.slice(i, i + BATCH_SIZE);
       const batchScores = batch.map((track) => {
-        const score = this.scoreTrack(track, profile);
+        const score = this.scoreTrack(track, profile, weights);
         const breakdown = this.getScoreBreakdown(track, profile);
 
         // Log scoring for debugging (first track only)
@@ -212,7 +239,11 @@ export class AudioraDJService {
   /**
    * Score a track based on user taste profile
    */
-  private scoreTrack(track: Track, profile: UserTasteProfile): number {
+  private scoreTrack(
+    track: Track,
+    profile: UserTasteProfile,
+    weights?: AIBSessionParameters['weights']
+  ): number {
     // Genre match (0-1)
     const genreMatch = this.calculateGenreMatch(track, profile);
 
@@ -225,12 +256,17 @@ export class AudioraDJService {
     // Novelty (0-1)
     const novelty = this.calculateNovelty(track, profile);
 
-    // Base score
+    // Base score (Use AI weights if available, else defaults)
+    const wGenre = weights?.genre_match ?? 0.4;
+    const wArtist = weights?.artist_match ?? 0.3;
+    const wMood = weights?.mood_match ?? 0.2;
+    const wNovelty = weights?.novelty ?? 0.1;
+
     const baseScore =
-      genreMatch * 0.4 +
-      artistMatch * 0.3 +
-      moodMatch * 0.2 +
-      novelty * 0.1;
+      genreMatch * wGenre +
+      artistMatch * wArtist +
+      moodMatch * wMood +
+      novelty * wNovelty;
 
     // Completion rate boost
     const completionRateBoost =
@@ -451,6 +487,7 @@ export class AudioraDJService {
       generatedAt: new Date(),
       tracks: trendingTracks,
       sessionLength: trendingTracks.length,
+      vibeDescription: "Trending tracks to get you started", // Fallback description
       metadata: {
         avgCompletionRate: 0,
         topGenres: [],

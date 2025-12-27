@@ -77,8 +77,8 @@ export function DJSelector() {
         play(playlist.tracks[0])
 
         toast.success(`Generated ${playlist.tracks.length} tracks from ${djs.find(d => d.id === selectedDJ)?.name}`, {
-          description: `Based on your listening history`,
-          duration: 3000,
+          description: playlist.vibeDescription || `Based on your listening history`,
+          duration: 4000,
         })
       } else {
         toast.error('No tracks found in playlist')

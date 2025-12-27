@@ -185,6 +185,7 @@ export interface AudioraDJPlaylist {
   tracks: Track[];
   sessionLength: number;
   seedTracks?: string[];
+  vibeDescription?: string;
   metadata?: {
     avgCompletionRate: number;
     topGenres: string[];
