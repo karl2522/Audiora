@@ -8,17 +8,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/contexts/auth-context"
-import { useMusicPlayerContext } from "@/contexts/music-player-context"
-import { AudioraDJPlaylist, getAudioraDJPlaylist } from "@/lib/music-client"
 import { cn } from "@/lib/utils"
 import { ChevronDown, Headphones, Loader2, Radio, Sparkles, Zap } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
-export function DJSelector() {
+interface DJSelectorProps {
+  onGenerate: (djId: string) => void
+  isGenerating: boolean
+}
+
+export function DJSelector({ onGenerate, isGenerating }: DJSelectorProps) {
   const { isAuthenticated } = useAuth()
-  const { play, clearQueue, addToQueue } = useMusicPlayerContext()
-  const [isGenerating, setIsGenerating] = useState(false)
   const [selectedDJ, setSelectedDJ] = useState<string>('audiora')
 
   const djs = [
@@ -48,7 +49,7 @@ export function DJSelector() {
     },
   ]
 
-  const handleGeneratePlaylist = async () => {
+  const handleGenerateClick = () => {
     if (!isAuthenticated) {
       toast.error('Please sign in to generate playlists')
       return
@@ -59,38 +60,7 @@ export function DJSelector() {
       return
     }
 
-    setIsGenerating(true)
-
-    try {
-      const playlist: AudioraDJPlaylist = await getAudioraDJPlaylist(15)
-
-      if (playlist.tracks && playlist.tracks.length > 0) {
-        // Clear current queue
-        clearQueue()
-
-        // Add all tracks to queue
-        playlist.tracks.forEach((track) => {
-          addToQueue(track)
-        })
-
-        // Play first track
-        play(playlist.tracks[0])
-
-        toast.success(`Generated ${playlist.tracks.length} tracks from ${djs.find(d => d.id === selectedDJ)?.name}`, {
-          description: playlist.vibeDescription || `Based on your listening history`,
-          duration: 4000,
-        })
-      } else {
-        toast.error('No tracks found in playlist')
-      }
-    } catch (error: any) {
-      console.error('Error generating playlist:', error)
-      toast.error('Failed to generate playlist', {
-        description: error?.message || 'Please try again later',
-      })
-    } finally {
-      setIsGenerating(false)
-    }
+    onGenerate(selectedDJ)
   }
 
   if (!isAuthenticated) {
@@ -160,7 +130,7 @@ export function DJSelector() {
         </DropdownMenuContent>
       </DropdownMenu>
       <Button
-        onClick={handleGeneratePlaylist}
+        onClick={handleGenerateClick}
         disabled={isGenerating}
         className="h-9 md:h-10 lg:h-12 xl:h-14 min-w-[100px] md:min-w-[120px] rounded-lg md:rounded-xl lg:rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md hover:shadow-lg text-sm md:text-sm lg:text-base xl:text-lg px-3 md:px-4 lg:px-6 flex-shrink-0 cursor-pointer"
       >

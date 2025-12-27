@@ -1,20 +1,24 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Injectable, Logger } from '@nestjs/common';
+import { z } from 'zod';
 import { UserTasteProfile } from '../dto/history.dto';
 
-export interface AIBSessionParameters {
-    vibe_description: string;
-    target_moods: string[];
-    weights: {
-        genre_match: number;
-        artist_match: number;
-        mood_match: number;
-        novelty: number;
-    };
-    filters: {
-        exclude_genres: string[];
-    };
-}
+// Define Zod Schema for robust validation
+const AISessionSchema = z.object({
+    vibe_description: z.string().describe("A short, engaging description of the vibe"),
+    target_moods: z.array(z.string()).describe("List of target moods"),
+    weights: z.object({
+        genre_match: z.number().min(0).max(1).default(0.4),
+        artist_match: z.number().min(0).max(1).default(0.3),
+        mood_match: z.number().min(0).max(1).default(0.2),
+        novelty: z.number().min(0).max(1).default(0.1),
+    }),
+    filters: z.object({
+        exclude_genres: z.array(z.string()).default([]),
+    }),
+});
+
+export type AIBSessionParameters = z.infer<typeof AISessionSchema>;
 
 @Injectable()
 export class AIService {
@@ -96,16 +100,16 @@ export class AIService {
             // Clean up markdown code blocks if present
             const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
-            const params = JSON.parse(jsonStr) as AIBSessionParameters;
+            // Parse and Validate with Zod
+            const params = JSON.parse(jsonStr);
+            const validatedParams = AISessionSchema.parse(params);
 
-            // Basic validation
-            if (!params.weights || !params.vibe_description) {
-                throw new Error('Invalid JSON structure');
-            }
-
-            return params;
+            return validatedParams;
         } catch (error: any) {
             console.error('[AIService] ❌ Failed to generate AI parameters (All models failed):', error.message);
+            if (error instanceof z.ZodError) {
+                console.error('[AIService] ❌ Validation Error:', error.issues);
+            }
             return null; // Trigger fallback
         }
     }

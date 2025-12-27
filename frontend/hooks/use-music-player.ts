@@ -20,6 +20,7 @@ export interface UseMusicPlayerReturn {
   setVolume: (volume: number) => void
   addToQueue: (track: Track) => 'success' | 'duplicate' | 'already-playing'
   clearQueue: () => void
+  replaceQueue: (tracks: Track[]) => void
 }
 
 export function useMusicPlayer(): UseMusicPlayerReturn {
@@ -45,6 +46,17 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
   useEffect(() => {
     currentIndexRef.current = currentIndex
   }, [currentIndex])
+
+  // Sync currentIndex with currentTrack and queue
+  // This ensures currentIndex is always correct even if setQueue/play are async
+  useEffect(() => {
+    if (currentTrack && queue.length > 0) {
+      const idx = queue.findIndex(t => t.id === currentTrack.id)
+      if (idx !== -1 && idx !== currentIndex) {
+        setCurrentIndex(idx)
+      }
+    }
+  }, [currentTrack, queue, currentIndex])
 
   const handleNext = useCallback(() => {
     const currentQueue = queueRef.current
@@ -87,15 +99,12 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
     setCurrentTrack(nextTrack)
     setIsPlaying(true)
 
-    // 6. Play Audio
-    if (audioRef.current) {
-      audioRef.current.src = nextTrack.streamUrl
-      audioRef.current.load()
-      audioRef.current.play().catch((error) => {
-        console.error('Error playing next track:', error)
-        setIsPlaying(false)
-      })
-    }
+    // 6. Play Audio - REMOVED explicit play here
+    // We set isPlaying(true) above, and setCurrentTrack(nextTrack).
+    // The useEffect that watches [currentTrack] will see the change and:
+    // 1. Load the new src
+    // 2. Auto-play because isPlaying is true
+    // This avoids the "play() request was interrupted by a new load request" race condition.
   }, []) // No dependencies - uses refs instead
 
   // Store handleNext in a ref so it's always current
@@ -359,27 +368,16 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
     }
 
     // Add track to queue if not already there
-    let trackIndex = -1
     setQueue((prev) => {
       const exists = prev.some(t => t.id === track.id)
       if (!exists) {
-        const newQueue = [...prev, track]
-        // Find the index of this track in the new queue
-        trackIndex = newQueue.findIndex(t => t.id === track.id)
-        return newQueue
-      } else {
-        // Track already in queue, find its index
-        trackIndex = prev.findIndex(t => t.id === track.id)
-        return prev
+        return [...prev, track]
       }
+      return prev
     })
 
-    // Update index and current track synchronously
-    if (trackIndex !== -1) {
-      setCurrentIndex(trackIndex)
-    }
-
     // Set as current track - useEffect will handle audio loading and playing
+    // useEffect will also update currentIndex
     setCurrentTrack(track)
     setIsPlaying(true)
   }, [])
@@ -474,6 +472,14 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
     }
   }, [pause])
 
+  const replaceQueue = useCallback((tracks: Track[]) => {
+    setQueue(tracks)
+    setCurrentIndex(-1)
+    // We don't stop playback here, assuming the caller will call play() next
+    // or if they just want to swap the queue while playing.
+    // But usually replaceQueue implies a new context.
+  }, [])
+
   return {
     currentTrack,
     isPlaying,
@@ -491,6 +497,7 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
     setVolume,
     addToQueue,
     clearQueue,
+    replaceQueue,
   }
 }
 

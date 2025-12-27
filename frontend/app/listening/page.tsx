@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/contexts/auth-context"
 import { useMusicPlayerContext } from "@/contexts/music-player-context"
 import { useListeningHistory } from "@/hooks/use-listening-history"
-import { searchTracks, Track } from "@/lib/music-client"
+import { AudioraDJPlaylist, getAudioraDJPlaylist, searchTracks, Track } from "@/lib/music-client"
 import { ArrowLeft, Music2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCallback, useState } from "react"
@@ -22,11 +22,13 @@ import { toast } from "sonner"
 export default function ListeningPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [searchResults, setSearchResults] = useState<Track[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [showSearchResults, setShowSearchResults] = useState(false)
+  const [vibeDescription, setVibeDescription] = useState<string | undefined>()
 
-  const { play, addToQueue, currentTrack } = useMusicPlayerContext()
+  const { play, addToQueue, clearQueue, replaceQueue, currentTrack } = useMusicPlayerContext()
   const { isAuthenticated, isLoading: isAuthLoading, authStatus } = useAuth()
   const [isSignInOpen, setIsSignInOpen] = useState(false)
 
@@ -159,6 +161,40 @@ export default function ListeningPage() {
     }
   }
 
+  const handleGeneratePlaylist = async (djId: string) => {
+    setIsGenerating(true)
+    try {
+      const playlist: AudioraDJPlaylist = await getAudioraDJPlaylist(15)
+
+      if (playlist.tracks && playlist.tracks.length > 0) {
+        replaceQueue(playlist.tracks)
+        play(playlist.tracks[0])
+        setVibeDescription(playlist.vibeDescription)
+
+        toast.success(`Generated ${playlist.tracks.length} tracks`, {
+          description: playlist.vibeDescription || `Based on your listening history`,
+          duration: 4000,
+        })
+      } else {
+        toast.error('No tracks found in playlist')
+      }
+    } catch (error: any) {
+      console.error('Error generating playlist:', error)
+      toast.error('Failed to generate playlist', {
+        description: error?.message || 'Please try again later',
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleRegenerate = () => {
+    // For now, regenerate just calls generate again (which will hit cache or new if expired)
+    // To force new, we might need a forceRefresh param in getAudioraDJPlaylist later
+    // But for v1.5, let's just re-trigger
+    handleGeneratePlaylist('audiora')
+  }
+
   // Removed debug useEffect - was causing unnecessary re-renders
 
   return (
@@ -262,10 +298,10 @@ export default function ListeningPage() {
             ) : authStatus === 'authenticated' || isAuthenticated ? (
               <>
                 {/* DJ Selector - Only show when logged in */}
-                <DJSelector />
+                <DJSelector onGenerate={handleGeneratePlaylist} isGenerating={isGenerating} />
                 {/* Queue Panel - Same size as left containers */}
                 <div className="flex-1 min-h-0 overflow-hidden">
-                  <QueuePanel />
+                  <QueuePanel vibeDescription={vibeDescription} onRegenerate={handleRegenerate} />
                 </div>
               </>
             ) : (
