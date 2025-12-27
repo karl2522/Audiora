@@ -1,13 +1,14 @@
 "use client"
 
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useMusicPlayerContext } from "@/contexts/music-player-context"
 import { Track } from "@/lib/music-client"
-import { Clock, ListMusic, Music2 } from "lucide-react"
+import { Clock, ListMusic, Music2, Trash2 } from "lucide-react"
 import Image from "next/image"
 
 export function QueuePanel() {
-  const { queue, currentTrack, play } = useMusicPlayerContext()
+  const { queue, currentTrack, play, clearQueue } = useMusicPlayerContext()
 
   const formatDuration = (seconds: number | undefined) => {
     if (!seconds || !isFinite(seconds) || isNaN(seconds) || seconds <= 0) {
@@ -25,9 +26,29 @@ export function QueuePanel() {
   return (
     <Card className="flex-1 flex flex-col bg-background border-border rounded-lg md:rounded-xl lg:rounded-2xl overflow-hidden min-h-0 h-full shadow-sm">
       <CardHeader className="pb-2 md:pb-2 flex-shrink-0 p-3 md:p-3 lg:p-4 bg-background">
-        <div className="flex items-center gap-1.5 md:gap-2">
-          <Music2 className="w-3 h-3 md:w-3.5 md:h-3.5 lg:w-4 lg:h-4 text-muted-foreground" />
-          <CardTitle className="text-sm md:text-sm lg:text-base">Queued songs</CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 md:gap-2">
+            <Music2 className="w-3 h-3 md:w-3.5 md:h-3.5 lg:w-4 lg:h-4 text-muted-foreground" />
+            <CardTitle className="text-sm md:text-sm lg:text-base">
+              Queued songs
+              {queue.length > 0 && (
+                <span className="ml-2 text-xs md:text-xs lg:text-sm text-muted-foreground font-normal">
+                  ({queue.length})
+                </span>
+              )}
+            </CardTitle>
+          </div>
+          {queue.length > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={clearQueue}
+              className="h-6 w-6 md:h-7 md:w-7 hover:bg-destructive/10 hover:text-destructive rounded-full cursor-pointer"
+              title="Clear queue"
+            >
+              <Trash2 className="w-3 h-3 md:w-3.5 md:h-3.5 lg:w-4 lg:h-4" />
+            </Button>
+          )}
         </div>
         <p className="text-xs md:text-xs lg:text-sm text-muted-foreground">Up next in your queue</p>
       </CardHeader>
