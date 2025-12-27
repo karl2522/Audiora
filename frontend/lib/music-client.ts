@@ -199,6 +199,7 @@ export interface AudioraDJPlaylist {
 export async function getAudioraDJPlaylist(
   sessionLength?: number,
   maxLength?: number,
+  djId: string = 'audiora', // New parameter
 ): Promise<AudioraDJPlaylist> {
   const params = new URLSearchParams();
   if (sessionLength) {
@@ -210,7 +211,7 @@ export async function getAudioraDJPlaylist(
 
   const queryString = params.toString();
   return apiRequest<AudioraDJPlaylist>(
-    `/music/dj/audiora${queryString ? `?${queryString}` : ''}`,
+    `/music/dj/${djId}${queryString ? `?${queryString}` : ''}`, // Dynamic URL
     { timeout: 60000 } // Allow 60s for AI generation
   );
 }

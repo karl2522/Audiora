@@ -21,6 +21,7 @@ interface DJSelectorProps {
 export function DJSelector({ onGenerate, isGenerating }: DJSelectorProps) {
   const { isAuthenticated } = useAuth()
   const [selectedDJ, setSelectedDJ] = useState<string>('audiora')
+  const [isOpen, setIsOpen] = useState(false)
 
   const djs = [
     {
@@ -75,17 +76,20 @@ export function DJSelector({ onGenerate, isGenerating }: DJSelectorProps) {
 
   return (
     <div className="w-full flex-shrink-0 flex gap-2 md:gap-3">
-      <DropdownMenu>
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            className="flex-1 justify-between h-9 md:h-10 lg:h-12 xl:h-14 rounded-lg md:rounded-xl lg:rounded-2xl bg-background border-border text-sm md:text-sm lg:text-base xl:text-lg focus-visible:ring-0 focus-visible:outline-none hover:bg-background cursor-pointer"
+            className="flex-1 justify-between h-9 md:h-10 lg:h-12 xl:h-14 rounded-lg md:rounded-xl lg:rounded-2xl bg-background border-border text-sm md:text-sm lg:text-base xl:text-lg focus-visible:ring-0 focus-visible:outline-none hover:bg-muted/50 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-2 md:gap-2.5 lg:gap-3">
               <SelectedIcon className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-foreground flex-shrink-0" />
               <span className="text-foreground">{selectedDJData.name}</span>
             </div>
-            <ChevronDown className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-muted-foreground flex-shrink-0" />
+            <ChevronDown className={cn(
+              "w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-muted-foreground flex-shrink-0 transition-transform duration-200",
+              isOpen && "rotate-180"
+            )} />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -108,9 +112,9 @@ export function DJSelector({ onGenerate, isGenerating }: DJSelectorProps) {
                   isLast && "rounded-b-lg md:rounded-b-xl lg:rounded-b-2xl",
                   !isFirst && !isLast && "rounded-none"
                 )}
-                onSelect={(e) => {
-                  e.preventDefault()
+                onSelect={() => {
                   setSelectedDJ(dj.id)
+                  setIsOpen(false)
                 }}
               >
                 <div className="flex items-center gap-2 md:gap-3 w-full">

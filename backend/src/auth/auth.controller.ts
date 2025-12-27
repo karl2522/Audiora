@@ -34,7 +34,7 @@ export class AuthController {
    * Generates state parameter for CSRF protection
    */
   @Public()
-  @Throttle({ default: { limit: 50, ttl: 60000 } }) // Increased limit
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // Conservative limit for auth
   @Get('google')
   @UseGuards(AuthGuard('google'))
   async googleAuth() {
@@ -46,7 +46,7 @@ export class AuthController {
    * Validates state parameter and exchanges code for tokens
    */
   @Public()
-  @Throttle({ default: { limit: 50, ttl: 60000 } }) // Increased limit
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // Conservative limit for auth
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleAuthCallback(
@@ -83,7 +83,7 @@ export class AuthController {
    * Refresh access token using refresh token from cookie
    */
   @Public()
-  @Throttle({ refresh: { limit: 50, ttl: 60000 } }) // Increased limit
+  @Throttle({ refresh: { limit: 100, ttl: 60000 } }) // Higher limit for token refresh
   @Post('refresh')
   @UseGuards(JwtRefreshGuard)
   @HttpCode(HttpStatus.OK)

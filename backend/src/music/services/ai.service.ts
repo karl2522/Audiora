@@ -7,6 +7,8 @@ import { UserTasteProfile } from '../dto/history.dto';
 const AISessionSchema = z.object({
     vibe_description: z.string().describe("A short, engaging description of the vibe"),
     target_moods: z.array(z.string()).describe("List of target moods"),
+    primary_genres: z.array(z.string()).describe("List of primary genres for this session"),
+    genre_strictness: z.number().min(0).max(1).describe("How strictly to adhere to primary genres (0-1)"),
     weights: z.object({
         genre_match: z.number().min(0).max(1).default(0.4),
         artist_match: z.number().min(0).max(1).default(0.3),
@@ -46,6 +48,7 @@ export class AIService {
     async getSessionParameters(
         profile: UserTasteProfile,
         context: string,
+        personaContext?: string, // New optional parameter for DJ Persona
     ): Promise<AIBSessionParameters | null> {
         if (!this.genAI) {
             console.warn('[AIService] AI not initialized');
@@ -59,9 +62,16 @@ export class AIService {
         const safeArtists = profile.topArtists.map(a => this.sanitizeInput(a)).join(', ');
         const safeMoods = profile.moodPreference.map(m => this.sanitizeInput(m)).join(', ');
 
+        // Construct System Prompt
+        let systemRole = `You are the "Brain" of the Audiora DJ. Your goal is to configure the music recommendation engine for a specific user session.`;
+
+        // Inject Persona Context if available
+        if (personaContext) {
+            systemRole = `${personaContext}\n\nYou are acting as this persona. Your goal is to curate a session that embodies YOUR specific style while respecting the user's taste where possible.`;
+        }
+
         const prompt = `
-      You are the "Brain" of the Audiora DJ.
-      Your goal is to configure the music recommendation engine for a specific user session.
+      ${systemRole}
       
       CONTEXT: ${this.sanitizeInput(context)}
       
@@ -72,12 +82,14 @@ export class AIService {
       - Discovery Rate: ${profile.discoveryRate}
       
       TASK:
-      Analyze this user and the current context. Define the optimal session parameters.
+      Analyze this user and the current context (and your persona, if applicable). Define the optimal session parameters.
       
       OUTPUT JSON FORMAT:
       {
-        "vibe_description": "A short, engaging description of the vibe (e.g., 'A focused flow for your morning')",
+        "vibe_description": "A short, engaging description of the vibe (e.g., 'A focused flow for your morning', 'Nova's deep house selection')",
         "target_moods": ["Mood1", "Mood2"],
+        "primary_genres": ["Genre1", "Genre2"],
+        "genre_strictness": 0.0 to 1.0 (Higher = stricter adherence to primary_genres, Lower = more variety/user history),
         "weights": {
           "genre_match": 0.1 to 0.9 (Standard: 0.4),
           "artist_match": 0.1 to 0.9 (Standard: 0.3),

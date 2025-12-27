@@ -170,7 +170,7 @@ export default function ListeningPage() {
   const handleGeneratePlaylist = async (djId: string) => {
     setIsGenerating(true)
     try {
-      const playlist: AudioraDJPlaylist = await getAudioraDJPlaylist(15)
+      const playlist: AudioraDJPlaylist = await getAudioraDJPlaylist(15, 50, djId)
 
       if (playlist.tracks && playlist.tracks.length > 0) {
         replaceQueue(playlist.tracks)

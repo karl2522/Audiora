@@ -12,6 +12,46 @@ import { AudiusService } from './audius.service';
 import { CacheService } from './cache.service';
 import { HistoryService } from './history.service';
 
+// Define DJ Personas
+interface DJPersona {
+  id: string;
+  name: string;
+  baseSystemPrompt: string;
+  influence: number; // 0.0 to 1.0 (Strength of identity vs user taste)
+  forbiddenGenres: string[]; // Hard guardrails
+}
+
+const DJ_PERSONAS: Record<string, DJPersona> = {
+  audiora: {
+    id: 'audiora',
+    name: 'Audiora',
+    baseSystemPrompt: "You are Audiora, a personalized AI DJ that deeply understands the user's taste. Your goal is to create the perfect mix based on their history and current context.",
+    influence: 0.3, // Low influence - mostly user taste
+    forbiddenGenres: [],
+  },
+  nova: {
+    id: 'nova',
+    name: 'Nova',
+    baseSystemPrompt: "You are Nova, a sophisticated Deep House and Melodic Techno DJ. You curate atmospheric, progressive, and emotive electronic music. You avoid high-energy aggressive genres. Start your vibe_description with 'Nova's...'.",
+    influence: 0.7, // High influence
+    forbiddenGenres: ['Metal', 'Country', 'Dubstep', 'Trap', 'Hardstyle'],
+  },
+  veda: {
+    id: 'veda',
+    name: 'Veda',
+    baseSystemPrompt: "You are Veda, a Minimal and Techno specialist. You appreciate clean sound design, driving rhythms, and underground vibes. You dislike commercial pop. Start your vibe_description with 'Veda's...'.",
+    influence: 0.8, // Very high influence
+    forbiddenGenres: ['Pop', 'Country', 'Rock', 'Classical'],
+  },
+  kai: {
+    id: 'kai',
+    name: 'Kai',
+    baseSystemPrompt: "You are Kai, a Lo-fi and Chillhop curator. You focus on relaxing, downtempo beats perfect for studying or relaxing. You avoid anything too fast or intense. Start your vibe_description with 'Kai's...'.",
+    influence: 0.9, // Strongest influence
+    forbiddenGenres: ['Metal', 'Techno', 'House', 'Drum & Bass', 'Rock'],
+  },
+};
+
 @Injectable()
 export class AudioraDJService {
   private readonly logger = new Logger(AudioraDJService.name);
@@ -29,14 +69,15 @@ export class AudioraDJService {
    * @param userId - User ID
    * @param sessionLength - Number of tracks (default: 15, max: 50)
    * @param maxSessionLength - Maximum allowed session length (default: 50)
+   * @param djId - ID of the DJ persona to use (default: 'audiora')
    */
   async generatePlaylist(
     userId: string,
     sessionLength: number = 15,
     maxSessionLength: number = 50,
+    djId: string = 'audiora', // New parameter
   ): Promise<AudioraDJPlaylist> {
     // Validate and clamp session length
-    // Fix: Explicitly handle NaN inputs
     const safeSessionLength = isNaN(sessionLength) ? 15 : sessionLength;
     const safeMaxSessionLength = isNaN(maxSessionLength) ? 50 : maxSessionLength;
 
@@ -45,14 +86,17 @@ export class AudioraDJService {
       safeMaxSessionLength, // Maximum 50 tracks (or custom max)
     );
 
-    // Check cache first
-    const cacheKey = `audiora-dj:${userId}:${validatedSessionLength}`;
+    // Get Persona
+    const persona = DJ_PERSONAS[djId.toLowerCase()] || DJ_PERSONAS['audiora'];
+    this.logger.log(`🎧 Generating playlist with DJ: ${persona.name} (Influence: ${persona.influence})`);
+
+    // Check cache first (include djId in key)
+    const cacheKey = `audiora-dj:${userId}:${djId}:${validatedSessionLength}`;
     const cached = this.cacheService.get<AudioraDJPlaylist>(cacheKey);
     if (cached) {
       this.logger.debug(`Cache HIT for Audiora DJ playlist: ${userId}`);
       return cached;
     }
-    // this.logger.log(`Cache bypassed for testing AI integration`);
 
     // Get user taste profile
     const profile = await this.historyService.buildUserTasteProfile(userId);
@@ -68,7 +112,8 @@ export class AudioraDJService {
     let aiParams: AIBSessionParameters | null = null;
 
     try {
-      aiParams = await this.aiService.getSessionParameters(profile, context);
+      // Pass Persona Context to AI
+      aiParams = await this.aiService.getSessionParameters(profile, context, persona.baseSystemPrompt);
       if (aiParams) {
         this.logger.log(`🤖 AI Session Parameters: ${JSON.stringify(aiParams)}`);
       }
@@ -76,13 +121,16 @@ export class AudioraDJService {
       this.logger.warn('Failed to get AI parameters, falling back to rule-based logic');
     }
 
-    // Build candidate pool
+    // Build candidate pool with Persona info
     const candidates = await this.buildCandidatePool(userId, profile, {
       maxCandidates: 500,
       includeDiscovery: true,
-      discoveryPercentage: 0.2,
+      discoveryPercentage: 0.2, // Could be dynamic based on persona too
       excludeRecentDays: 7,
-      excludeGenres: aiParams?.filters?.exclude_genres, // Apply AI filters
+      excludeGenres: aiParams?.filters?.exclude_genres,
+      persona: persona, // Pass persona for filtering
+      primaryGenres: aiParams?.primary_genres, // Pass AI's intent
+      genreStrictness: aiParams?.genre_strictness,
     });
 
     if (candidates.length === 0) {
@@ -90,12 +138,14 @@ export class AudioraDJService {
       return this.getFallbackPlaylist(userId, validatedSessionLength);
     }
 
-    // Score all tracks (batched for performance)
+    // Score all tracks
     const scoredTracks = await this.batchScoreTracks(
       candidates,
       profile,
       userId,
-      aiParams?.weights // Pass AI weights
+      aiParams?.weights,
+      persona, // Pass persona for scoring influence
+      aiParams?.primary_genres
     );
 
     // Sort by score (highest first)
@@ -142,7 +192,12 @@ export class AudioraDJService {
   private async buildCandidatePool(
     userId: string,
     profile: UserTasteProfile,
-    options: CandidatePoolOptions & { excludeGenres?: string[] } = {},
+    options: CandidatePoolOptions & {
+      excludeGenres?: string[];
+      persona?: DJPersona;
+      primaryGenres?: string[];
+      genreStrictness?: number;
+    } = {},
   ): Promise<Track[]> {
     const {
       maxCandidates = 500,
@@ -150,15 +205,23 @@ export class AudioraDJService {
       discoveryPercentage = 0.2,
       excludeRecentDays = 7,
       excludeGenres = [],
+      persona,
+      primaryGenres = [],
+      genreStrictness = 0,
     } = options;
 
     // Get recently played track IDs
     const recentTracks = await this.getRecentTrackIds(userId, excludeRecentDays);
 
-    // Query Audius for tracks matching top genres (60% of pool)
+    // AI/Persona Driven Discovery: Use primary genres if strictness is high
+    const targetGenres = (genreStrictness > 0.5 && primaryGenres.length > 0)
+      ? primaryGenres
+      : profile.topGenres;
+
+    // Query Audius for tracks matching target genres (60% of pool)
     const genreLimit = Math.floor(maxCandidates * 0.6);
     const genreTracks = await this.audiusService.searchByGenres(
-      profile.topGenres.slice(0, 3),
+      targetGenres.slice(0, 3), // Use top 3 from AI or Profile
       genreLimit,
     );
 
@@ -176,7 +239,7 @@ export class AudioraDJService {
     const discoveryTracks =
       discoveryLimit > 0
         ? await this.audiusService.getDiscoveryTracks(
-          profile.topGenres,
+          targetGenres, // Use AI genres for discovery too
           discoveryLimit,
         )
         : [];
@@ -185,11 +248,15 @@ export class AudioraDJService {
     const allTracks = [...genreTracks, ...artistTracks, ...discoveryTracks];
     const uniqueTracks = this.deduplicateTracks(allTracks);
 
-    // Filter out skip-heavy genres AND AI-excluded genres
+    // Filter out skip-heavy genres AND AI-excluded genres AND Persona Forbidden genres
+    const forbidden = new Set([
+      ...profile.skipHeavyGenres,
+      ...excludeGenres,
+      ...(persona?.forbiddenGenres || [])
+    ]);
+
     const filtered = uniqueTracks.filter(
-      (track) =>
-        !profile.skipHeavyGenres.includes(track.genre || '') &&
-        !excludeGenres.includes(track.genre || '')
+      (track) => !forbidden.has(track.genre || '')
     );
 
     // Filter out recently played
@@ -212,6 +279,8 @@ export class AudioraDJService {
     profile: UserTasteProfile,
     userId: string,
     weights?: AIBSessionParameters['weights'],
+    persona?: DJPersona,
+    primaryGenres?: string[],
   ): Promise<TrackScore[]> {
     const BATCH_SIZE = 100; // Process 100 tracks at a time
     const scoredTracks: TrackScore[] = [];
@@ -219,7 +288,7 @@ export class AudioraDJService {
     for (let i = 0; i < tracks.length; i += BATCH_SIZE) {
       const batch = tracks.slice(i, i + BATCH_SIZE);
       const batchScores = batch.map((track) => {
-        const score = this.scoreTrack(track, profile, weights);
+        const score = this.scoreTrack(track, profile, weights, persona, primaryGenres);
         const breakdown = this.getScoreBreakdown(track, profile);
 
         // Log scoring for debugging (first track only)
@@ -241,22 +310,22 @@ export class AudioraDJService {
   }
 
   /**
-   * Score a track based on user taste profile
+   * Score a track based on user taste profile and persona influence
    */
   private scoreTrack(
     track: Track,
     profile: UserTasteProfile,
-    weights?: AIBSessionParameters['weights']
+    weights?: AIBSessionParameters['weights'],
+    persona?: DJPersona,
+    primaryGenres?: string[]
   ): number {
+    // 1. Calculate Base Match (User Fit)
     // Genre match (0-1)
     const genreMatch = this.calculateGenreMatch(track, profile);
-
     // Artist match (0-1)
     const artistMatch = this.calculateArtistMatch(track, profile);
-
     // Mood match (0-1)
     const moodMatch = this.calculateMoodMatch(track, profile);
-
     // Novelty (0-1)
     const novelty = this.calculateNovelty(track, profile);
 
@@ -266,25 +335,41 @@ export class AudioraDJService {
     const wMood = weights?.mood_match ?? 0.2;
     const wNovelty = weights?.novelty ?? 0.1;
 
-    const baseScore =
+    const baseUserScore =
       genreMatch * wGenre +
       artistMatch * wArtist +
       moodMatch * wMood +
       novelty * wNovelty;
 
+    // 2. Calculate Persona Match (DJ Fit)
+    let personaScore = 0;
+    if (persona && primaryGenres && primaryGenres.length > 0) {
+      // If track genre is in primaryGenres, high score
+      if (primaryGenres.some(g => track.genre?.toLowerCase().includes(g.toLowerCase()))) {
+        personaScore = 1.0;
+      } else {
+        personaScore = 0.2; // Penalty for not matching persona vibe
+      }
+    } else {
+      personaScore = baseUserScore; // Default to user score if no persona constraints
+    }
+
+    // 3. Blend Scores based on Influence
+    // final = (user * (1 - influence)) + (persona * influence)
+    const influence = persona?.influence || 0;
+    const blendedScore = (baseUserScore * (1 - influence)) + (personaScore * influence);
+
+    // 4. Boosts (Completion Rate, Time Relevance)
     // Completion rate boost
     const completionRateBoost =
       0.8 + profile.avgTrackCompletionRate * 0.4;
-
     // Time relevance boost
     const timeRelevanceBoost = this.calculateTimeRelevance(profile);
 
-    // Final score
-    const finalScore = baseScore * completionRateBoost * timeRelevanceBoost;
+    // Final score calculation
+    const finalScore = blendedScore * completionRateBoost * timeRelevanceBoost;
 
     // ⚠️ IMPORTANT: Renormalize to 0-1 after boosts
-    // Boosts can exceed 1.2 or drop below 0.8, so we need to renormalize
-    // to prevent high boosts from disproportionately affecting ranking
     return Math.min(1.0, Math.max(0.0, finalScore));
   }
 

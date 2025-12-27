@@ -1,35 +1,34 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Delete,
-  Query,
-  Param,
   Body,
-  UseGuards,
+  Controller,
+  Delete,
+  Get,
   HttpCode,
-  HttpStatus,
   HttpException,
+  HttpStatus,
   Logger,
+  Param,
+  Post,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
-import { TrackService } from './services/track.service';
-import { PlaylistService } from './services/playlist.service';
-import { HistoryService } from './services/history.service';
-import { AudioraDJService } from './services/audiora-dj.service';
-import { SearchTracksDto, GetTrackDto, GetTrendingDto } from './dto/track.dto';
-import {
-  LogTrackStartDto,
-  LogTrackCompleteDto,
-  LogTrackSkipDto,
-  GetHistoryDto,
-} from './dto/history.dto';
-import { AudioraDJPlaylist } from './dto/dj.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { UserPayload } from '../auth/interfaces/user.interface';
+import { AudioraDJPlaylist } from './dto/dj.dto';
+import {
+  GetHistoryDto,
+  LogTrackCompleteDto,
+  LogTrackSkipDto,
+  LogTrackStartDto,
+} from './dto/history.dto';
+import { GetTrackDto, GetTrendingDto, SearchTracksDto } from './dto/track.dto';
 import { Track } from './interfaces/audius.interface';
+import { AudioraDJService } from './services/audiora-dj.service';
+import { HistoryService } from './services/history.service';
+import { PlaylistService } from './services/playlist.service';
+import { TrackService } from './services/track.service';
 
 @Controller('music')
 export class MusicController {
@@ -40,13 +39,12 @@ export class MusicController {
     private playlistService: PlaylistService,
     private historyService: HistoryService,
     private audioraDJService: AudioraDJService,
-  ) {}
+  ) { }
 
   /**
    * Search tracks
    */
   @Public()
-  @Throttle({ default: { limit: 2000, ttl: 60000 } }) // 2000 searches per minute
   @Get('search')
   @HttpCode(HttpStatus.OK)
   async searchTracks(@Query() query: SearchTracksDto): Promise<{
@@ -78,12 +76,12 @@ export class MusicController {
     } catch (error: any) {
       // Log the actual error for debugging
       console.error('Search tracks error:', error);
-      
+
       // If it's already an HttpException, rethrow it
       if (error instanceof HttpException) {
         throw error;
       }
-      
+
       throw new HttpException(
         error.message || 'Failed to search tracks',
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,
@@ -95,7 +93,6 @@ export class MusicController {
    * Get trending tracks
    */
   @Public()
-  @Throttle({ default: { limit: 60, ttl: 60000 } }) // 60 requests per minute
   @Get('trending')
   @HttpCode(HttpStatus.OK)
   async getTrendingTracks(@Query() query: GetTrendingDto): Promise<{
@@ -120,7 +117,6 @@ export class MusicController {
    * Get track by ID
    */
   @Public()
-  @Throttle({ default: { limit: 50, ttl: 60000 } }) // 50 requests per minute
   @Get('track/:id')
   @HttpCode(HttpStatus.OK)
   async getTrack(@Param() params: GetTrackDto): Promise<{ track: Track }> {
@@ -147,7 +143,6 @@ export class MusicController {
    * Get stream URL for a track
    */
   @Public()
-  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 100 requests per minute
   @Get('track/:id/stream')
   @HttpCode(HttpStatus.OK)
   async getStreamUrl(@Param() params: GetTrackDto): Promise<{
@@ -189,7 +184,6 @@ export class MusicController {
    * Log track start event
    */
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 100 requests per minute per user
   @Post('history/start')
   @HttpCode(HttpStatus.OK)
   async logTrackStart(
@@ -224,7 +218,6 @@ export class MusicController {
    * Log track completion
    */
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 100, ttl: 60000 } })
   @Post('history/complete')
   @HttpCode(HttpStatus.OK)
   async logTrackComplete(
@@ -250,7 +243,6 @@ export class MusicController {
    * Log track skip
    */
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 100, ttl: 60000 } })
   @Post('history/skip')
   @HttpCode(HttpStatus.OK)
   async logTrackSkip(
@@ -276,7 +268,6 @@ export class MusicController {
    * Get user's listening history
    */
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute per user
   @Get('history')
   @HttpCode(HttpStatus.OK)
   async getHistory(
@@ -305,7 +296,6 @@ export class MusicController {
    * Get AI-ready user taste profile
    */
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute per user
   @Get('history/taste-profile')
   @HttpCode(HttpStatus.OK)
   async getTasteProfile(@CurrentUser() user: UserPayload) {
@@ -323,7 +313,6 @@ export class MusicController {
    * Get user's listening statistics
    */
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute per user
   @Get('history/stats')
   @HttpCode(HttpStatus.OK)
   async getStats(@CurrentUser() user: UserPayload) {
@@ -341,7 +330,6 @@ export class MusicController {
    * Delete specific play history entry
    */
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Delete('history/:id')
   @HttpCode(HttpStatus.OK)
   async deleteHistoryEntry(
@@ -371,7 +359,6 @@ export class MusicController {
    * Delete all user's play history
    */
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Delete('history')
   @HttpCode(HttpStatus.OK)
   async deleteAllHistory(@CurrentUser() user: UserPayload) {
@@ -392,14 +379,14 @@ export class MusicController {
   }
 
   /**
-   * Get Audiora DJ personalized playlist
+   * Get personalized playlist from specific DJ
    */
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute
-  @Get('dj/audiora')
+  @Get('dj/:djId') // Dynamic DJ ID
   @HttpCode(HttpStatus.OK)
   async getAudioraDJPlaylist(
     @CurrentUser() user: UserPayload,
+    @Param('djId') djId: string,
     @Query('sessionLength') sessionLength?: number,
     @Query('maxLength') maxLength?: number,
   ): Promise<AudioraDJPlaylist> {
@@ -411,10 +398,12 @@ export class MusicController {
         ? parseInt(maxLength.toString(), 10)
         : 50; // Default max 50 tracks
 
+      // Pass djId to service
       const playlist = await this.audioraDJService.generatePlaylist(
         user.sub,
         validatedSessionLength,
         validatedMaxLength,
+        djId, // New parameter
       );
 
       // Log playlist generation for analytics

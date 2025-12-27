@@ -31,12 +31,30 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
   const [volume, setVolume] = useState(80)
   const [queue, setQueue] = useState<Track[]>([])
   const [currentIndex, setCurrentIndex] = useState(-1)
+  const [isHydrated, setIsHydrated] = useState(false)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   // Use refs to avoid dependencies on queue/currentIndex
   const queueRef = useRef<Track[]>([])
   const currentIndexRef = useRef<number>(-1)
+
+  // Restore from localStorage after hydration
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !isHydrated) {
+      const savedQueue = localStorage.getItem('audiora_queue')
+      const savedTrack = localStorage.getItem('audiora_current_track')
+
+      if (savedQueue) {
+        setQueue(JSON.parse(savedQueue))
+      }
+      if (savedTrack) {
+        setCurrentTrack(JSON.parse(savedTrack))
+      }
+
+      setIsHydrated(true)
+    }
+  }, [isHydrated])
 
   // Keep refs in sync
   useEffect(() => {
@@ -46,6 +64,24 @@ export function useMusicPlayer(): UseMusicPlayerReturn {
   useEffect(() => {
     currentIndexRef.current = currentIndex
   }, [currentIndex])
+
+  // Persist queue to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('audiora_queue', JSON.stringify(queue))
+    }
+  }, [queue])
+
+  // Persist current track to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (currentTrack) {
+        localStorage.setItem('audiora_current_track', JSON.stringify(currentTrack))
+      } else {
+        localStorage.removeItem('audiora_current_track')
+      }
+    }
+  }, [currentTrack])
 
   // Sync currentIndex with currentTrack and queue
   // This ensures currentIndex is always correct even if setQueue/play are async
