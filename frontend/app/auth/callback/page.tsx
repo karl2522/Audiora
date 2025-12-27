@@ -113,25 +113,58 @@ export default function AuthCallbackPage() {
   }, [authStatus, hasStartedAuth, router])
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-background text-foreground">
-      <div className="text-center space-y-6 px-4">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 rounded-full bg-foreground flex items-center justify-center animate-pulse">
-            <Music2 className="w-8 h-8 text-background" />
-          </div>
+    <main className="min-h-screen flex items-center justify-center bg-background text-foreground relative overflow-hidden">
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @keyframes music-bar {
+          0%, 100% { height: 15%; opacity: 0.3; }
+          50% { height: 100%; opacity: 1; }
+        }
+        .animate-music-bar {
+          animation: music-bar 0.8s ease-in-out infinite;
+        }
+      `}} />
+
+      {/* Background Pattern */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent pointer-events-none" />
+
+      <div className="relative z-10 flex flex-col items-center justify-center space-y-8 p-8 max-w-md w-full">
+        {/* Music Visualizer Logo */}
+        <div className="flex items-center justify-center gap-2 h-16 mb-4">
+          {[...Array(5)].map((_, i) => (
+            <div
+              key={i}
+              className="w-2.5 bg-foreground rounded-full animate-music-bar"
+              style={{
+                animationDelay: `${i * 0.1}s`,
+                height: '100%' // Initial height, overridden by animation
+              }}
+            />
+          ))}
         </div>
 
         {isLoading ? (
-          <>
-            <h1 className="text-2xl font-light">Completing sign in...</h1>
-            <p className="text-muted-foreground">Please wait while we authenticate you.</p>
-          </>
+          <div className="text-center space-y-3">
+            <h1 className="text-3xl font-bold tracking-tighter">Audiora</h1>
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-sm font-medium text-muted-foreground animate-pulse">
+                Completing sign in...
+              </p>
+              <p className="text-xs text-muted-foreground/60">
+                Setting up your personal stage
+              </p>
+            </div>
+          </div>
         ) : error ? (
-          <>
-            <h1 className="text-2xl font-light text-destructive">Authentication Error</h1>
-            <p className="text-muted-foreground">{error}</p>
-            <p className="text-sm text-muted-foreground">Redirecting to home page...</p>
-          </>
+          <div className="text-center space-y-3 animate-in fade-in zoom-in duration-300">
+            <div className="w-12 h-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto mb-2">
+              <Music2 className="w-6 h-6" />
+            </div>
+            <h1 className="text-xl font-semibold text-destructive">Authentication Error</h1>
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <p className="text-xs text-muted-foreground/60 mt-4">Redirecting you home...</p>
+          </div>
         ) : null}
       </div>
     </main>

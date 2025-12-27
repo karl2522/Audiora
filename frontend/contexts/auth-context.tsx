@@ -97,13 +97,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
+      // Set auth status to unauthenticated immediately to update UI
+      setAuthStatus('unauthenticated')
+      setUser(null)
+
+      // Call API logout
       await apiLogout()
     } catch (error) {
       // Silently handle logout errors
     } finally {
-      // Reset auth state atomically
+      // Ensure state is cleared
       setUser(null)
       setAuthStatus('unauthenticated')
+
+      // Force reload to clear any in-memory state/loops
+      // This is the safest way to ensure all polling/requests stop
+      window.location.href = '/'
     }
   }, [])
 
