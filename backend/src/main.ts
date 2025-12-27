@@ -1,8 +1,8 @@
-import 'dotenv/config';
-import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
+import 'dotenv/config';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
@@ -26,15 +26,17 @@ async function bootstrap() {
   // CORS configuration with validation
   const nodeEnv = configService.get<string>('NODE_ENV') || 'development';
   const corsOrigin = configService.get<string>('corsOrigin');
-  
+
   // Validate CORS origin in production
   if (nodeEnv === 'production' && !corsOrigin) {
     throw new Error('CORS_ORIGIN must be set in production');
   }
 
-  const allowedOrigins = corsOrigin 
+  const allowedOrigins = corsOrigin
     ? corsOrigin.split(',').map(origin => origin.trim())
     : ['http://localhost:3000']; // Only allow localhost in development
+
+  console.log('🔒 CORS allowed origins:', allowedOrigins);
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -42,10 +44,12 @@ async function bootstrap() {
       if (!origin) {
         return callback(null, true);
       }
-      
+
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.error(`❌ CORS blocked origin: ${origin}`);
+        console.error(`   Allowed origins: ${allowedOrigins.join(', ')}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
@@ -71,7 +75,7 @@ async function bootstrap() {
 
   const port = configService.get<number>('port') || 3001;
   await app.listen(port);
-  
+
   console.log(`🚀 Application is running on: http://localhost:${port}/api`);
 }
 bootstrap();
