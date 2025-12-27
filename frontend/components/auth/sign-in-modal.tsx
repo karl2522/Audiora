@@ -1,7 +1,5 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { Music2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -11,6 +9,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { getGoogleOAuthUrl } from "@/lib/auth"
+import { Music2 } from "lucide-react"
+import { useRef, useState } from "react"
 
 interface SignInModalProps {
   open: boolean
@@ -26,10 +26,10 @@ export function SignInModal({ open, onOpenChange }: SignInModalProps) {
     if (isRedirectingRef.current || isLoading) {
       return
     }
-    
+
     isRedirectingRef.current = true
     setIsLoading(true)
-    
+
     // Redirect to backend OAuth endpoint
     // The backend will handle the Google OAuth flow and redirect back
     window.location.href = getGoogleOAuthUrl()
@@ -51,7 +51,7 @@ export function SignInModal({ open, onOpenChange }: SignInModalProps) {
             Sign in with Google to personalize your music experience with AI-powered recommendations.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4 md:space-y-6 pt-4 md:pt-6">
           <Button
             onClick={handleGoogleSignIn}
@@ -84,7 +84,7 @@ export function SignInModal({ open, onOpenChange }: SignInModalProps) {
               </>
             )}
           </Button>
-          
+
           <p className="text-xs text-center text-muted-foreground">
             By continuing, you agree to Audiora's Terms of Service and Privacy Policy
           </p>

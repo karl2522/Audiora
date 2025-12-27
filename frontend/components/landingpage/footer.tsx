@@ -1,7 +1,7 @@
 "use client"
 
-import { Music2 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
+import { Music2 } from "lucide-react"
 
 const smoothScrollTo = (elementId: string) => {
     const element = document.getElementById(elementId)
@@ -35,8 +35,8 @@ export function Footer() {
                         <h4 className="font-medium mb-4">Product</h4>
                         <ul className="space-y-2 text-sm text-muted-foreground">
                             <li>
-                                <a 
-                                    href="#cta" 
+                                <a
+                                    href="#cta"
                                     onClick={(e) => {
                                         e.preventDefault()
                                         smoothScrollTo('cta')
@@ -47,8 +47,8 @@ export function Footer() {
                                 </a>
                             </li>
                             <li>
-                                <a 
-                                    href="#ai-djs" 
+                                <a
+                                    href="#ai-djs"
                                     onClick={(e) => {
                                         e.preventDefault()
                                         smoothScrollTo('ai-djs')
@@ -59,8 +59,8 @@ export function Footer() {
                                 </a>
                             </li>
                             <li>
-                                <a 
-                                    href="#features" 
+                                <a
+                                    href="#features"
                                     onClick={(e) => {
                                         e.preventDefault()
                                         smoothScrollTo('features')

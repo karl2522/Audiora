@@ -16,8 +16,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Audiora",
-  description: "Your AI-powered music DJ",
+    title: "Audiora – Your Personalized AI Music DJ",
+    description:
+        "Personalized AI DJ for discovering, mixing, and enjoying your favorite music.",
+    generator: "v0.app",
+    icons: {
+        icon: [
+            {
+                url: "/images/audiora.png",
+                media: "(prefers-color-scheme: light)",
+            },
+            {
+                url: "/images/audiora.png",
+                media: "(prefers-color-scheme: dark)",
+            },
+            {
+                url: "/images/audiora.png",
+            },
+        ],
+        apple: "/images/audiora.png",
+    },
 };
 
 export default function RootLayout({

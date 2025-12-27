@@ -1,10 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { Music2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { SignInModal } from "@/components/auth/sign-in-modal"
-import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Music2 } from "lucide-react"
+import { useState } from "react"
 
 const smoothScrollTo = (elementId: string) => {
     const element = document.getElementById(elementId)
@@ -22,11 +21,11 @@ const smoothScrollTo = (elementId: string) => {
 
 export function Navigation() {
     const [isSignInOpen, setIsSignInOpen] = useState(false)
-    
+
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-4 md:px-12 md:py-6 mix-blend-difference">
-            <a 
-                href="#hero" 
+            <a
+                href="#hero"
                 onClick={(e) => {
                     e.preventDefault()
                     smoothScrollTo('hero')
@@ -37,8 +36,8 @@ export function Navigation() {
                 <span className="text-lg md:text-xl font-medium tracking-tighter text-white uppercase">Audiora</span>
             </a>
             <div className="hidden md:flex items-center gap-8">
-                <a 
-                    href="#ai-djs" 
+                <a
+                    href="#ai-djs"
                     onClick={(e) => {
                         e.preventDefault()
                         smoothScrollTo('ai-djs')
@@ -47,8 +46,8 @@ export function Navigation() {
                 >
                     AI DJs
                 </a>
-                <a 
-                    href="#features" 
+                <a
+                    href="#features"
                     onClick={(e) => {
                         e.preventDefault()
                         smoothScrollTo('features')
@@ -57,8 +56,8 @@ export function Navigation() {
                 >
                     Features
                 </a>
-                <a 
-                    href="#contact" 
+                <a
+                    href="#contact"
                     onClick={(e) => {
                         e.preventDefault()
                         smoothScrollTo('contact')
@@ -68,7 +67,7 @@ export function Navigation() {
                     Contact
                 </a>
             </div>
-            <Button 
+            <Button
                 onClick={() => setIsSignInOpen(true)}
                 className="px-3 py-1.5 md:px-5 md:py-2 bg-white text-black rounded-full text-xs md:text-sm font-medium hover:bg-opacity-90 hover:scale-105 transition-all cursor-pointer"
             >
