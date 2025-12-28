@@ -76,29 +76,38 @@ export class AuthController {
     @Body() dto: ExchangeCodeDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const tokens = await this.authService.exchangeAuthCode(dto.code);
+    console.log('🔑 Exchange code request received:', { code: dto.code.substring(0, 10) + '...' });
 
-    // Consistent cookie policy for all environments
-    const cookieOptions = {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none' as const,
-      path: '/',
-    };
+    try {
+      const tokens = await this.authService.exchangeAuthCode(dto.code);
+      console.log('✅ Tokens generated successfully');
 
-    // Set refresh token in httpOnly cookie
-    res.cookie('refreshToken', tokens.refreshToken, {
-      ...cookieOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+      // Consistent cookie policy for all environments
+      const cookieOptions = {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none' as const,
+        path: '/',
+      };
 
-    // Set access token in httpOnly cookie
-    res.cookie('accessToken', tokens.accessToken, {
-      ...cookieOptions,
-      maxAge: 15 * 60 * 1000, // 15 minutes
-    });
+      // Set refresh token in httpOnly cookie
+      res.cookie('refreshToken', tokens.refreshToken, {
+        ...cookieOptions,
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
 
-    return { success: true };
+      // Set access token in httpOnly cookie
+      res.cookie('accessToken', tokens.accessToken, {
+        ...cookieOptions,
+        maxAge: 15 * 60 * 1000, // 15 minutes
+      });
+
+      console.log('🍪 Cookies set successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Exchange code failed:', error.message);
+      throw error;
+    }
   }
 
   /**
