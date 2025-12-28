@@ -26,22 +26,10 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
-    const request = context.switchToHttp().getRequest();
-
-    console.log('🔐 JWT Guard - handleRequest');
-    console.log('   Cookies:', Object.keys(request.cookies || {}));
-    console.log('   Has accessToken cookie:', !!request.cookies?.accessToken);
-    console.log('   Error:', err?.message);
-    console.log('   Info:', info?.message);
-    console.log('   User:', user ? `${user.email} (${user.sub})` : 'null');
-
+  handleRequest(err: any, user: any, info: any) {
     if (err || !user) {
-      console.error('❌ JWT Guard rejected:', err?.message || info?.message || 'No user');
       throw err || new UnauthorizedException('Invalid or expired token');
     }
-
-    console.log('✅ JWT Guard passed');
     return user;
   }
 }

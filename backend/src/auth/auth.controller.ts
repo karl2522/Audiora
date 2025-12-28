@@ -76,11 +76,8 @@ export class AuthController {
     @Body() dto: ExchangeCodeDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    console.log('🔑 Exchange code request received:', { code: dto.code.substring(0, 10) + '...' });
-
     try {
       const tokens = await this.authService.exchangeAuthCode(dto.code);
-      console.log('✅ Tokens generated successfully');
 
       // iOS-compatible cookie policy
       // Note: httpOnly cookies don't work cross-domain on iOS Safari
@@ -104,8 +101,6 @@ export class AuthController {
         maxAge: 15 * 60 * 1000, // 15 minutes
       });
 
-      console.log('🍪 Cookies set successfully');
-
       // ALSO return tokens in response for iOS fallback
       // Frontend can store in localStorage if cookies don't work
       return {
@@ -116,7 +111,6 @@ export class AuthController {
         },
       };
     } catch (error) {
-      console.error('❌ Exchange code failed:', error.message);
       throw error;
     }
   }
@@ -180,22 +174,14 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async getProfile(
     @CurrentUser() user: UserPayload,
-    @Req() req: Request,
   ) {
-    console.log('👤 /auth/me called');
-    console.log('   Cookies received:', Object.keys(req.cookies || {}));
-    console.log('   Has accessToken:', !!req.cookies?.accessToken);
-    console.log('   User from JWT:', user.email);
-
     // Fetch fresh user data from database
     const dbUser = await this.userRepository.findById(user.sub);
 
     if (!dbUser) {
-      console.error('❌ User not found in database:', user.sub);
       throw new UnauthorizedException('User not found');
     }
 
-    console.log('✅ User profile returned:', dbUser.email);
     return {
       email: dbUser.email,
       name: dbUser.name || undefined,
