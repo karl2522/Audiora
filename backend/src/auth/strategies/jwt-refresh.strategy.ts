@@ -1,8 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { PassportStrategy } from '@nestjs/passport';
 import type { Request } from 'express';
+import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { TokenPayload, UserPayload } from '../interfaces/user.interface';
 import { RefreshTokenRepository } from '../repositories/refresh-token.repository';
 
@@ -23,8 +23,8 @@ export class JwtRefreshStrategy extends PassportStrategy(
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         (request: Request) => {
-          // Extract refresh token from httpOnly cookie
-          return request?.cookies?.refreshToken;
+          // Extract refresh token from httpOnly cookie OR body (iOS fallback)
+          return request?.cookies?.refreshToken || request?.body?.refreshToken;
         },
       ]),
       ignoreExpiration: false,
@@ -37,7 +37,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
     request: Request,
     payload: TokenPayload,
   ): Promise<UserPayload | null> {
-    const refreshToken = request?.cookies?.refreshToken;
+    const refreshToken = request?.cookies?.refreshToken || request?.body?.refreshToken;
 
     if (!refreshToken) {
       return null;
@@ -45,7 +45,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
 
     // Verify refresh token exists and is valid in database
     const tokenRecord = await this.refreshTokenRepository.findByToken(refreshToken);
-    
+
     if (!tokenRecord) {
       throw new UnauthorizedException('Invalid or revoked refresh token');
     }

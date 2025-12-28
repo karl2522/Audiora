@@ -82,7 +82,9 @@ export class AuthController {
       const tokens = await this.authService.exchangeAuthCode(dto.code);
       console.log('✅ Tokens generated successfully');
 
-      // Consistent cookie policy for all environments
+      // iOS-compatible cookie policy
+      // Note: httpOnly cookies don't work cross-domain on iOS Safari
+      // We set them anyway for desktop browsers
       const cookieOptions = {
         httpOnly: true,
         secure: true,
@@ -103,7 +105,16 @@ export class AuthController {
       });
 
       console.log('🍪 Cookies set successfully');
-      return { success: true };
+
+      // ALSO return tokens in response for iOS fallback
+      // Frontend can store in localStorage if cookies don't work
+      return {
+        success: true,
+        tokens: {
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+        },
+      };
     } catch (error) {
       console.error('❌ Exchange code failed:', error.message);
       throw error;
@@ -121,8 +132,9 @@ export class AuthController {
   async refreshToken(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
+    @Body() body: { refreshToken?: string },
   ) {
-    const refreshToken = req.cookies?.refreshToken;
+    const refreshToken = req.cookies?.refreshToken || body?.refreshToken;
 
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token not found');
@@ -130,11 +142,11 @@ export class AuthController {
 
     const tokens = await this.authService.refreshAccessToken(refreshToken);
 
-    // Consistent cookie policy for all environments (iOS compatibility)
+    // iOS-compatible cookie policy
     const cookieOptions = {
       httpOnly: true,
-      secure: true,  // Always true for iOS Safari compatibility
-      sameSite: 'none' as const,  // Always 'none' to eliminate environment drift
+      secure: true,
+      sameSite: 'none' as const,
       path: '/',
     };
 
@@ -144,7 +156,7 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    // Set access token in httpOnly cookie
+    // Update access token cookie
     res.cookie('accessToken', tokens.accessToken, {
       ...cookieOptions,
       maxAge: 15 * 60 * 1000, // 15 minutes
@@ -152,6 +164,10 @@ export class AuthController {
 
     return {
       success: true,
+      tokens: {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      }
     };
   }
 

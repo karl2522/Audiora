@@ -11,12 +11,13 @@ export interface ApiError {
 
 /**
  * Get access token from storage
- * SECURITY FIX: Access token is now in httpOnly cookie, not localStorage
- * This function is kept for backward compatibility but tokens are handled server-side
+ * Checks localStorage for iOS fallback (httpOnly cookies don't work cross-domain on iOS)
  */
 function getAccessToken(): string | null {
-  // Access token is now in httpOnly cookie, accessible only server-side
-  // Frontend doesn't need to manage it directly
+  // iOS Safari fallback: check localStorage
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('accessToken');
+  }
   return null;
 }
 
@@ -120,6 +121,11 @@ export async function apiRequest<T = any>(
     ...options.headers,
   };
 
+  // Add Authorization header if we have a token (fallback for iOS)
+  if (token) {
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+  }
+
   // Helper for fetch with timeout
   const doFetch = async (url: string, opts: RequestInit) => {
     const controller = new AbortController();
@@ -131,7 +137,8 @@ export async function apiRequest<T = any>(
     }
   };
 
-  // Access token is in httpOnly cookie, automatically sent with credentials: 'include'
+  // Access token is in httpOnly cookie (desktop) or Authorization header (iOS),
+  // automatically sent with credentials: 'include' for cookies
   let response = await doFetch(`${API_URL}${endpoint}`, {
     ...fetchOptions,
     headers,

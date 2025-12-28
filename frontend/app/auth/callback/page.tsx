@@ -96,9 +96,19 @@ function AuthCallbackContent() {
         })
         .then((data) => {
           console.log('✅ Code exchange successful:', data)
-          console.log('🔄 Refreshing user...')
           setDebugMessage('Exchange successful! Refreshing...')
-          // Small delay to ensure cookies are set by browser
+
+          // iOS Safari doesn't send httpOnly cookies cross-domain
+          // Store tokens in localStorage as fallback
+          if (data.tokens) {
+            console.log('� Storing tokens in localStorage (iOS fallback)')
+            localStorage.setItem('accessToken', data.tokens.accessToken)
+            localStorage.setItem('refreshToken', data.tokens.refreshToken)
+            setDebugMessage('Tokens stored in localStorage')
+          }
+
+          console.log('🔄 Refreshing user...')
+          // Small delay to ensure cookies/localStorage are set
           setTimeout(() => {
             refreshUser()
           }, 100)
