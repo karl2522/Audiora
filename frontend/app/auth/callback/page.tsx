@@ -41,6 +41,7 @@ function AuthCallbackContent() {
   const [hasStartedAuth, setHasStartedAuth] = useState(false)
   const [showParticles, setShowParticles] = useState(false)
   const [debugMessage, setDebugMessage] = useState<string>('Initializing...')
+  const [isExchanging, setIsExchanging] = useState(false) // Prevent duplicate calls
 
   // Show particles only on client side to avoid hydration issues
   useEffect(() => {
@@ -63,10 +64,11 @@ function AuthCallbackContent() {
       return
     }
 
-    if (code && !hasStartedAuth) {
+    if (code && !hasStartedAuth && !isExchanging) {
       console.log('🔑 Starting code exchange...', { code: code.substring(0, 10) + '...' })
       setDebugMessage(`Code received: ${code.substring(0, 10)}...`)
       setHasStartedAuth(true)
+      setIsExchanging(true) // Prevent duplicate calls
 
       // Exchange code for tokens
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
