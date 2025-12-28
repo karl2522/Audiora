@@ -55,24 +55,25 @@ export class AuthController {
   ) {
     const tokens = await this.authService.login(user);
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
-    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+
+    // Consistent cookie policy for all environments (iOS compatibility)
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true,  // Always true for iOS Safari compatibility
+      sameSite: 'none' as const,  // Always 'none' to eliminate environment drift
+      path: '/',
+    };
 
     // Set refresh token in httpOnly cookie
     res.cookie('refreshToken', tokens.refreshToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax', // 'none' required for cross-site cookies in production
+      ...cookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: '/',
     });
 
-    // Set access token in httpOnly cookie (SECURITY FIX: No longer in URL)
+    // Set access token in httpOnly cookie
     res.cookie('accessToken', tokens.accessToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax', // 'none' required for cross-site cookies in production
-      maxAge: 15 * 60 * 1000, // 15 minutes (matches access token expiry)
-      path: '/',
+      ...cookieOptions,
+      maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
     // Redirect to frontend without token in URL
@@ -98,24 +99,25 @@ export class AuthController {
     }
 
     const tokens = await this.authService.refreshAccessToken(refreshToken);
-    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+
+    // Consistent cookie policy for all environments (iOS compatibility)
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true,  // Always true for iOS Safari compatibility
+      sameSite: 'none' as const,  // Always 'none' to eliminate environment drift
+      path: '/',
+    };
 
     // Update refresh token cookie
     res.cookie('refreshToken', tokens.refreshToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax', // 'none' required for cross-site cookies in production
+      ...cookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: '/',
     });
 
     // Set access token in httpOnly cookie
     res.cookie('accessToken', tokens.accessToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax', // 'none' required for cross-site cookies in production
+      ...cookieOptions,
       maxAge: 15 * 60 * 1000, // 15 minutes
-      path: '/',
     });
 
     return {
@@ -176,23 +178,19 @@ export class AuthController {
       await this.authService.logout(refreshToken);
     }
 
-    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    // Consistent cookie policy for all environments (must match set cookies)
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true,  // Always true for iOS Safari compatibility
+      sameSite: 'none' as const,  // Always 'none' to eliminate environment drift
+      path: '/',
+    };
 
     // Clear refresh token cookie
-    res.clearCookie('refreshToken', {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax', // Must match cookie settings
-      path: '/',
-    });
+    res.clearCookie('refreshToken', cookieOptions);
 
     // Clear access token cookie
-    res.clearCookie('accessToken', {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax', // Must match cookie settings
-      path: '/',
-    });
+    res.clearCookie('accessToken', cookieOptions);
 
     return { message: 'Logged out successfully' };
   }
