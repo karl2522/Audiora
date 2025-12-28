@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail } from 'class-validator';
+import { IsEmail, IsOptional, IsString } from 'class-validator';
 
 export class GoogleCallbackDto {
   @IsString()
@@ -28,4 +28,8 @@ export class AuthResponseDto {
   picture?: string;
 }
 
+export class ExchangeCodeDto {
+  @IsString()
+  code: string;
+}
 

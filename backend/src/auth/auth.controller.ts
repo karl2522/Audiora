@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -15,6 +16,7 @@ import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
+import { ExchangeCodeDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import type { UserPayload } from './interfaces/user.interface';
@@ -43,24 +45,44 @@ export class AuthController {
 
   /**
    * Google OAuth callback
-   * Validates state parameter and exchanges code for tokens
+   * Creates temporary auth code and redirects to frontend (iOS compatible)
    */
   @Public()
-  @Throttle({ default: { limit: 20, ttl: 60000 } }) // Conservative limit for auth
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleAuthCallback(
     @CurrentUser() user: UserPayload,
     @Res() res: Response,
   ) {
-    const tokens = await this.authService.login(user);
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
 
-    // Consistent cookie policy for all environments (iOS compatibility)
+    // Create temporary authorization code (60s expiry, single-use)
+    const code = await this.authService.createAuthCode(user.sub);
+
+    // Redirect to frontend with code (not tokens!)
+    res.redirect(`${frontendUrl}/auth/callback?code=${code}`);
+  }
+
+  /**
+   * Exchange authorization code for tokens
+   * Sets cookies in same-domain context (iOS compatible)
+   */
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @Post('exchange-code')
+  @HttpCode(HttpStatus.OK)
+  async exchangeCode(
+    @Body() dto: ExchangeCodeDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const tokens = await this.authService.exchangeAuthCode(dto.code);
+
+    // Consistent cookie policy for all environments
     const cookieOptions = {
       httpOnly: true,
-      secure: true,  // Always true for iOS Safari compatibility
-      sameSite: 'none' as const,  // Always 'none' to eliminate environment drift
+      secure: true,
+      sameSite: 'none' as const,
       path: '/',
     };
 
@@ -76,8 +98,7 @@ export class AuthController {
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
-    // Redirect to frontend without token in URL
-    res.redirect(`${frontendUrl}/auth/callback?success=true`);
+    return { success: true };
   }
 
   /**

@@ -1,17 +1,18 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import type { JwtModuleOptions } from '@nestjs/jwt/dist/interfaces/jwt-module-options.interface';
 import { PassportModule } from '@nestjs/passport';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import Redis from 'ioredis';
 import { AuthController } from './auth.controller';
+import { RefreshTokenRepository } from './repositories/refresh-token.repository';
+import { UserRepository } from './repositories/user.repository';
 import { AuthService } from './services/auth.service';
 import { TokenService } from './services/token.service';
 import { GoogleStrategy } from './strategies/google.strategy';
-import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
-import { UserRepository } from './repositories/user.repository';
-import { RefreshTokenRepository } from './repositories/refresh-token.repository';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
@@ -55,7 +56,21 @@ import { RefreshTokenRepository } from './repositories/refresh-token.repository'
     JwtRefreshStrategy,
     UserRepository,
     RefreshTokenRepository,
+    {
+      provide: 'REDIS_CLIENT',
+      useFactory: (config: ConfigService) => {
+        const redisUrl = config.get('REDIS_URL');
+        return redisUrl
+          ? new Redis(redisUrl)
+          : new Redis({
+            host: config.get('REDIS_HOST', 'localhost'),
+            port: config.get('REDIS_PORT', 6379),
+            password: config.get('REDIS_PASSWORD', undefined),
+          });
+      },
+      inject: [ConfigService],
+    },
   ],
   exports: [AuthService, TokenService, UserRepository, RefreshTokenRepository],
 })
-export class AuthModule {}
+export class AuthModule { }

@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { GoogleUser, UserPayload } from '../interfaces/user.interface';
-import { TokenService } from './token.service';
-import { UserRepository } from '../repositories/user.repository';
-import { RefreshTokenRepository } from '../repositories/refresh-token.repository';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomBytes } from 'crypto';
+import Redis from 'ioredis';
+import { GoogleUser, UserPayload } from '../interfaces/user.interface';
+import { RefreshTokenRepository } from '../repositories/refresh-token.repository';
+import { UserRepository } from '../repositories/user.repository';
+import { TokenService } from './token.service';
 
 @Injectable()
 export class AuthService {
@@ -12,14 +14,15 @@ export class AuthService {
     private userRepository: UserRepository,
     private refreshTokenRepository: RefreshTokenRepository,
     private configService: ConfigService,
-  ) {}
+    @Inject('REDIS_CLIENT') private redis: Redis,
+  ) { }
 
   /**
    * Validate user from Google OAuth and save/update in database
    */
   async validateGoogleUser(googleUser: GoogleUser): Promise<UserPayload> {
     const user = await this.userRepository.createOrUpdate(googleUser);
-    
+
     return {
       sub: user.id,
       email: user.email,
@@ -68,10 +71,10 @@ export class AuthService {
    */
   async refreshAccessToken(refreshToken: string) {
     const payload = this.tokenService.verifyRefreshToken(refreshToken);
-    
+
     // Verify refresh token exists and is valid in database
     const tokenRecord = await this.refreshTokenRepository.findByToken(refreshToken);
-    
+
     if (!tokenRecord) {
       throw new Error('Invalid or revoked refresh token');
     }
@@ -143,6 +146,52 @@ export class AuthService {
    */
   async logoutAll(userId: string): Promise<void> {
     await this.refreshTokenRepository.revokeAllForUser(userId);
+  }
+
+  /**
+   * Create temporary authorization code for OAuth flow (iOS compatibility)
+   * Code expires in 60 seconds and is single-use
+   */
+  async createAuthCode(userId: string): Promise<string> {
+    // Generate cryptographically secure random code
+    const code = randomBytes(32).toString('base64url');
+
+    // Store in Redis with 60-second expiry
+    await this.redis.setex(`auth_code:${code}`, 60, userId);
+
+    return code;
+  }
+
+  /**
+   * Exchange authorization code for tokens
+   * Code is deleted after use (single-use)
+   */
+  async exchangeAuthCode(code: string) {
+    // Get userId from Redis
+    const userId = await this.redis.get(`auth_code:${code}`);
+
+    if (!userId) {
+      throw new UnauthorizedException('Invalid or expired authorization code');
+    }
+
+    // Delete code immediately (single-use)
+    await this.redis.del(`auth_code:${code}`);
+
+    // Get user from database
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const userPayload: UserPayload = {
+      sub: user.id,
+      email: user.email,
+      name: user.name || undefined,
+      picture: user.picture || undefined,
+    };
+
+    // Generate tokens using existing login method
+    return this.login(userPayload);
   }
 }
 

@@ -46,12 +46,13 @@ function AuthCallbackContent() {
     setShowParticles(true)
   }, [])
 
-  // Effect 1: Start authentication process when success param is present
+  // Effect 1: Exchange authorization code for tokens
   useEffect(() => {
-    const success = searchParams.get('success')
+    const code = searchParams.get('code')
     const errorParam = searchParams.get('error')
 
     if (errorParam) {
+      console.error('OAuth error:', errorParam)
       setError(errorParam)
       setIsLoading(false)
       setTimeout(() => {
@@ -60,20 +61,62 @@ function AuthCallbackContent() {
       return
     }
 
-    if (success === 'true' && !hasStartedAuth) {
+    if (code && !hasStartedAuth) {
+      console.log('🔑 Starting code exchange...', { code: code.substring(0, 10) + '...' })
       setHasStartedAuth(true)
-      refreshUser()
+
+      // Exchange code for tokens
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+      console.log('📡 API URL:', API_URL)
+
+      fetch(`${API_URL}/auth/exchange-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Important for cookies
+        body: JSON.stringify({ code }),
+      })
+        .then(async (res) => {
+          console.log('📥 Exchange response status:', res.status)
+          if (!res.ok) {
+            const errorText = await res.text()
+            console.error('❌ Exchange failed:', errorText)
+            throw new Error('Code exchange failed')
+          }
+          return res.json()
+        })
+        .then((data) => {
+          console.log('✅ Code exchange successful:', data)
+          console.log('🔄 Refreshing user...')
+          // Small delay to ensure cookies are set by browser
+          setTimeout(() => {
+            refreshUser()
+          }, 100)
+        })
+        .catch((err) => {
+          console.error('❌ Code exchange error:', err)
+          setError('Authentication failed. Please try again.')
+          setIsLoading(false)
+          setTimeout(() => {
+            router.push('/')
+          }, 3000)
+        })
     }
   }, [searchParams, hasStartedAuth, refreshUser, router])
 
   // Effect 2: Redirect when authenticated
   useEffect(() => {
+    console.log('🔍 Auth status changed:', authStatus, 'hasStartedAuth:', hasStartedAuth)
+
     if (authStatus === 'authenticated') {
+      console.log('✅ Authenticated! Redirecting to /listening...')
       setIsLoading(false)
       setTimeout(() => {
         router.push('/listening')
       }, 1000)
     } else if (authStatus === 'unauthenticated' && hasStartedAuth) {
+      console.error('❌ Authentication failed after code exchange')
       setError('Authentication failed. Please try again.')
       setIsLoading(false)
       setTimeout(() => {
