@@ -40,6 +40,7 @@ function AuthCallbackContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [hasStartedAuth, setHasStartedAuth] = useState(false)
   const [showParticles, setShowParticles] = useState(false)
+  const [debugMessage, setDebugMessage] = useState<string>('Initializing...')
 
   // Show particles only on client side to avoid hydration issues
   useEffect(() => {
@@ -54,6 +55,7 @@ function AuthCallbackContent() {
     if (errorParam) {
       console.error('OAuth error:', errorParam)
       setError(errorParam)
+      setDebugMessage(`Error: ${errorParam}`)
       setIsLoading(false)
       setTimeout(() => {
         router.push('/')
@@ -63,11 +65,13 @@ function AuthCallbackContent() {
 
     if (code && !hasStartedAuth) {
       console.log('🔑 Starting code exchange...', { code: code.substring(0, 10) + '...' })
+      setDebugMessage(`Code received: ${code.substring(0, 10)}...`)
       setHasStartedAuth(true)
 
       // Exchange code for tokens
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
       console.log('📡 API URL:', API_URL)
+      setDebugMessage(`Calling API: ${API_URL}`)
 
       fetch(`${API_URL}/auth/exchange-code`, {
         method: 'POST',
@@ -79,9 +83,11 @@ function AuthCallbackContent() {
       })
         .then(async (res) => {
           console.log('📥 Exchange response status:', res.status)
+          setDebugMessage(`Response: ${res.status}`)
           if (!res.ok) {
             const errorText = await res.text()
             console.error('❌ Exchange failed:', errorText)
+            setDebugMessage(`Failed: ${errorText}`)
             throw new Error('Code exchange failed')
           }
           return res.json()
@@ -89,6 +95,7 @@ function AuthCallbackContent() {
         .then((data) => {
           console.log('✅ Code exchange successful:', data)
           console.log('🔄 Refreshing user...')
+          setDebugMessage('Exchange successful! Refreshing...')
           // Small delay to ensure cookies are set by browser
           setTimeout(() => {
             refreshUser()
@@ -96,6 +103,7 @@ function AuthCallbackContent() {
         })
         .catch((err) => {
           console.error('❌ Code exchange error:', err)
+          setDebugMessage(`Error: ${err.message}`)
           setError('Authentication failed. Please try again.')
           setIsLoading(false)
           setTimeout(() => {
@@ -108,15 +116,18 @@ function AuthCallbackContent() {
   // Effect 2: Redirect when authenticated
   useEffect(() => {
     console.log('🔍 Auth status changed:', authStatus, 'hasStartedAuth:', hasStartedAuth)
+    setDebugMessage(`Auth status: ${authStatus}`)
 
     if (authStatus === 'authenticated') {
       console.log('✅ Authenticated! Redirecting to /listening...')
+      setDebugMessage('Authenticated! Redirecting...')
       setIsLoading(false)
       setTimeout(() => {
         router.push('/listening')
       }, 1000)
     } else if (authStatus === 'unauthenticated' && hasStartedAuth) {
       console.error('❌ Authentication failed after code exchange')
+      setDebugMessage('Auth failed - unauthenticated')
       setError('Authentication failed. Please try again.')
       setIsLoading(false)
       setTimeout(() => {
@@ -205,6 +216,10 @@ function AuthCallbackContent() {
               <span className="w-2 h-2 bg-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
               <span className="w-2 h-2 bg-foreground rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
             </div>
+            {/* Debug message for iOS testing */}
+            <p className="text-xs text-muted-foreground/60 font-mono">
+              {debugMessage}
+            </p>
           </div>
         ) : (
           <div className="space-y-4 animate-fade-in">
