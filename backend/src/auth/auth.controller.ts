@@ -162,14 +162,24 @@ export class AuthController {
   @Get('me')
   @SkipThrottle()
   @UseGuards(JwtAuthGuard)
-  async getProfile(@CurrentUser() user: UserPayload) {
+  async getProfile(
+    @CurrentUser() user: UserPayload,
+    @Req() req: Request,
+  ) {
+    console.log('👤 /auth/me called');
+    console.log('   Cookies received:', Object.keys(req.cookies || {}));
+    console.log('   Has accessToken:', !!req.cookies?.accessToken);
+    console.log('   User from JWT:', user.email);
+
     // Fetch fresh user data from database
     const dbUser = await this.userRepository.findById(user.sub);
 
     if (!dbUser) {
+      console.error('❌ User not found in database:', user.sub);
       throw new UnauthorizedException('User not found');
     }
 
+    console.log('✅ User profile returned:', dbUser.email);
     return {
       email: dbUser.email,
       name: dbUser.name || undefined,
