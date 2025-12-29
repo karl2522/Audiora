@@ -34,12 +34,6 @@ Choose from four distinct AI DJ personalities, each with unique musical preferen
 - **Google OAuth** - Sign in for personalized AI DJ experiences and history tracking
 - **JWT Security** - Secure token-based authentication
 
-### 🎨 **Modern UI/UX**
-- **Responsive Design** - Beautiful interface that works on all devices
-- **Dark/Light Mode** - Theme support for comfortable viewing
-- **Smooth Animations** - Polished interactions and transitions
-- **shadcn/ui Components** - Modern, accessible UI components
-
 ---
 
 ## 🛠️ Tech Stack
