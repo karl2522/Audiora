@@ -34,6 +34,11 @@ Choose from four distinct AI DJ personalities, each with unique musical preferen
 - **Google OAuth** - Sign in for personalized AI DJ experiences and history tracking
 - **JWT Security** - Secure token-based authentication
 
+### 🎨 **Modern UI/UX**
+- **Responsive Design** - Beautiful interface that works on all devices
+- **Smooth Animations** - Polished interactions and transitions
+- **shadcn/ui Components** - Modern, accessible UI components
+
 ---
 
 ## 🛠️ Tech Stack
@@ -155,7 +160,7 @@ This project is private and proprietary.
 
 - **Audius** - For providing free, decentralized music streaming
 - **Google Gemini AI** - For powering intelligent playlist generation
-- **radix/ui** - For beautiful, accessible UI components
+- **shadcn/ui** - For beautiful, accessible UI components
 - **Vercel & Railway** - For seamless deployment infrastructure
 
 ---
